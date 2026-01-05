@@ -1,0 +1,42 @@
+# routing_task:
+#   description: >
+#     Understand the user query: {query}, and route it to the most appropriate knowledge base
+#   expected_output: >
+#     The most appropriate knowledge base to route the user query to, the answer should be either 'pdf_search' or 'pdf_search'
+#   agent: routing_agent
+
+retrieval_task:
+  description: >
+    Retrieve ONLY text chunks from the uploaded PDF that are directly relevant
+    to the user query.
+
+    Do NOT use general knowledge.
+    Do NOT summarize.
+    Do NOT answer the question.
+
+    Output must be JSON ONLY.
+    Each quote must be copied verbatim from the PDF.
+    Each page must be an integer in the range 1-4.
+  expected_output: >
+    Return JSON only, no prose.
+    Schema:
+    {
+      "evidence": [
+        {"page": <int 1-4>, "quote": "<verbatim text from PDF>"}
+      ]
+    }
+  agent: retriever_agent
+
+response_task:
+  description: >
+    Using ONLY the JSON returned by the retrieval task, answer the user's question.
+
+    Rules:
+    - You may only use text inside evidence[].quote
+    - Every claim must cite (p.#) using the page numbers from evidence
+    - If evidence is empty or insufficient, output exactly: Not in the provided documents.
+    - Do not invent pages. Valid pages are 1-4 only.
+    - Do not invent quotes. Do not paraphrase evidence as if it were a quote.
+  expected_output: >
+    A concise answer grounded in the PDF with (p.#) citations.
+  agent: response_synthesizer_agent

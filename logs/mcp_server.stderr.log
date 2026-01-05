@@ -1,0 +1,471 @@
+[12/30/25 21:55:03] ERROR    LiteLLM call failed:                     llm.py:806
+                             litellm.APIConnectionError:                        
+                             OllamaException - [Errno 1] Operation              
+                             not permitted                                      
+Deep Research error: litellm.APIConnectionError: OllamaException - [Errno 1] Operation not permitted
+[12/30/25 21:57:14] ERROR    LiteLLM call failed:                     llm.py:806
+                             litellm.APIConnectionError:                        
+                             OllamaException - [Errno 1] Operation              
+                             not permitted                                      
+Deep Research error: litellm.APIConnectionError: OllamaException - [Errno 1] Operation not permitted
+[12/30/25 22:01:39] ERROR    LiteLLM call failed:                     llm.py:806
+                             litellm.APIConnectionError:                        
+                             OllamaException - [Errno 1] Operation              
+                             not permitted                                      
+Deep Research error: litellm.APIConnectionError: OllamaException - [Errno 1] Operation not permitted
+[12/30/25 22:02:48] ERROR    LiteLLM call failed:                     llm.py:806
+                             litellm.APIConnectionError:                        
+                             OllamaException - [Errno 1] Operation              
+                             not permitted                                      
+Deep Research error: litellm.APIConnectionError: OllamaException - [Errno 1] Operation not permitted
+[12/31/25 09:22:29] INFO     Processing request of type            server.py:664
+                             CallToolRequest                                    
+[12/31/25 09:22:30] INFO     Using config path:                     config.py:50
+                             /Users/mohamedalkhyeli/projects/ai-eng             
+                             ineering-hub/agentic_rag_deepseek/.cac             
+                             he/mcp_home/.config/crewai/settings.js             
+                             on                                                 
+[92m09:22:30 - LiteLLM:INFO[0m: utils.py:3296 - 
+LiteLLM completion() model= deepseek-r1:7b; provider = ollama
+                    INFO                                           utils.py:3296
+                             LiteLLM completion() model=                        
+                             deepseek-r1:7b; provider = ollama                  
+[12/31/25 09:23:29] INFO     Processing request of type            server.py:664
+                             CallToolRequest                                    
+[12/31/25 09:23:30] INFO     Using config path:                     config.py:50
+                             /Users/mohamedalkhyeli/projects/ai-eng             
+                             ineering-hub/agentic_rag_deepseek/.cac             
+                             he/mcp_home/.config/crewai/settings.js             
+                             on                                                 
+[92m09:23:30 - LiteLLM:INFO[0m: utils.py:3296 - 
+LiteLLM completion() model= deepseek-r1:7b; provider = ollama
+                    INFO                                           utils.py:3296
+                             LiteLLM completion() model=                        
+                             deepseek-r1:7b; provider = ollama                  
+[12/31/25 09:24:09] INFO     Processing request of type            server.py:664
+                             CallToolRequest                                    
+[12/31/25 09:24:10] INFO     Using config path:                     config.py:50
+                             /Users/mohamedalkhyeli/projects/ai-eng             
+                             ineering-hub/agentic_rag_deepseek/.cac             
+                             he/mcp_home/.config/crewai/settings.js             
+                             on                                                 
+[92m09:24:10 - LiteLLM:INFO[0m: utils.py:3296 - 
+LiteLLM completion() model= deepseek-r1:7b; provider = ollama
+                    INFO                                           utils.py:3296
+                             LiteLLM completion() model=                        
+                             deepseek-r1:7b; provider = ollama                  
+[12/31/25 09:26:23] INFO     Processing request of type            server.py:664
+                             CallToolRequest                                    
+                    INFO     Using config path:                     config.py:50
+                             /Users/mohamedalkhyeli/projects/ai-eng             
+                             ineering-hub/agentic_rag_deepseek/.cac             
+                             he/mcp_home/.config/crewai/settings.js             
+                             on                                                 
+[92m09:26:24 - LiteLLM:INFO[0m: utils.py:3296 - 
+LiteLLM completion() model= deepseek-r1:7b; provider = ollama
+[12/31/25 09:26:24] INFO                                           utils.py:3296
+                             LiteLLM completion() model=                        
+                             deepseek-r1:7b; provider = ollama                  
+[12/31/25 09:28:15] INFO     Processing request of type            server.py:664
+                             CallToolRequest                                    
+[12/31/25 09:28:16] INFO     Using config path:                     config.py:50
+                             /Users/mohamedalkhyeli/projects/ai-eng             
+                             ineering-hub/agentic_rag_deepseek/.cac             
+                             he/mcp_home/.config/crewai/settings.js             
+                             on                                                 
+[92m09:28:16 - LiteLLM:INFO[0m: utils.py:3296 - 
+LiteLLM completion() model= deepseek-r1:7b; provider = ollama
+                    INFO                                           utils.py:3296
+                             LiteLLM completion() model=                        
+                             deepseek-r1:7b; provider = ollama                  
+[12/31/25 09:29:08] INFO     Processing request of type            server.py:664
+                             CallToolRequest                                    
+[12/31/25 09:29:09] INFO     Using config path:                     config.py:50
+                             /Users/mohamedalkhyeli/projects/ai-eng             
+                             ineering-hub/agentic_rag_deepseek/.cac             
+                             he/mcp_home/.config/crewai/settings.js             
+                             on                                                 
+[92m09:29:09 - LiteLLM:INFO[0m: utils.py:3296 - 
+LiteLLM completion() model= deepseek-r1:7b; provider = ollama
+                    INFO                                           utils.py:3296
+                             LiteLLM completion() model=                        
+                             deepseek-r1:7b; provider = ollama                  
+[12/31/25 09:29:23] INFO     Processing request of type            server.py:664
+                             CallToolRequest                                    
+[12/31/25 09:29:24] INFO     Using config path:                     config.py:50
+                             /Users/mohamedalkhyeli/projects/ai-eng             
+                             ineering-hub/agentic_rag_deepseek/.cac             
+                             he/mcp_home/.config/crewai/settings.js             
+                             on                                                 
+[92m09:29:24 - LiteLLM:INFO[0m: utils.py:3296 - 
+LiteLLM completion() model= deepseek-r1:7b; provider = ollama
+                    INFO                                           utils.py:3296
+                             LiteLLM completion() model=                        
+                             deepseek-r1:7b; provider = ollama                  
+  + Exception Group Traceback (most recent call last):
+  |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/server.py", line 150, in <module>
+  |     mcp.run(transport="stdio")
+  |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/server/fastmcp/server.py", line 159, in run
+  |     anyio.run(self.run_stdio_async)
+  |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/anyio/_core/_eventloop.py", line 74, in run
+  |     return async_backend.run(func, args, {}, backend_options)
+  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/anyio/_backends/_asyncio.py", line 2310, in run
+  |     return runner.run(wrapper())
+  |            ^^^^^^^^^^^^^^^^^^^^^
+  |   File "/opt/homebrew/Cellar/python@3.11/3.11.14/Frameworks/Python.framework/Versions/3.11/lib/python3.11/asyncio/runners.py", line 118, in run
+  |     return self._loop.run_until_complete(task)
+  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |   File "/opt/homebrew/Cellar/python@3.11/3.11.14/Frameworks/Python.framework/Versions/3.11/lib/python3.11/asyncio/base_events.py", line 654, in run_until_complete
+  |     return future.result()
+  |            ^^^^^^^^^^^^^^^
+  |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/anyio/_backends/_asyncio.py", line 2298, in wrapper
+  |     return await func(*args)
+  |            ^^^^^^^^^^^^^^^^^
+  |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/server/fastmcp/server.py", line 460, in run_stdio_async
+  |     async with stdio_server() as (read_stream, write_stream):
+  |   File "/opt/homebrew/Cellar/python@3.11/3.11.14/Frameworks/Python.framework/Versions/3.11/lib/python3.11/contextlib.py", line 231, in __aexit__
+  |     await self.gen.athrow(typ, value, traceback)
+  |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/server/stdio.py", line 83, in stdio_server
+  |     async with anyio.create_task_group() as tg:
+  |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/anyio/_backends/_asyncio.py", line 772, in __aexit__
+  |     raise BaseExceptionGroup(
+  | ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception)
+  +-+---------------- 1 ----------------
+    | Exception Group Traceback (most recent call last):
+    |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/server/stdio.py", line 86, in stdio_server
+    |     yield read_stream, write_stream
+    |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/server/fastmcp/server.py", line 461, in run_stdio_async
+    |     await self._mcp_server.run(
+    |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/server/lowlevel/server.py", line 483, in run
+    |     async with AsyncExitStack() as stack:
+    |   File "/opt/homebrew/Cellar/python@3.11/3.11.14/Frameworks/Python.framework/Versions/3.11/lib/python3.11/contextlib.py", line 745, in __aexit__
+    |     raise exc_details[1]
+    |   File "/opt/homebrew/Cellar/python@3.11/3.11.14/Frameworks/Python.framework/Versions/3.11/lib/python3.11/contextlib.py", line 728, in __aexit__
+    |     cb_suppress = await cb(*exc_details)
+    |                   ^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/shared/session.py", line 210, in __aexit__
+    |     return await self._task_group.__aexit__(exc_type, exc_val, exc_tb)
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/anyio/_backends/_asyncio.py", line 772, in __aexit__
+    |     raise BaseExceptionGroup(
+    | ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception)
+    +-+---------------- 1 ----------------
+      | Exception Group Traceback (most recent call last):
+      |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/server/lowlevel/server.py", line 489, in run
+      |     async with anyio.create_task_group() as tg:
+      |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/anyio/_backends/_asyncio.py", line 772, in __aexit__
+      |     raise BaseExceptionGroup(
+      | ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception)
+      +-+---------------- 1 ----------------
+        | Traceback (most recent call last):
+        |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/server/lowlevel/server.py", line 517, in _handle_message
+        |     await self._handle_request(
+        |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/server/lowlevel/server.py", line 563, in _handle_request
+        |     await message.respond(response)
+        |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/shared/session.py", line 122, in respond
+        |     await self._session._send_response(  # type: ignore[reportPrivateUsage]
+        |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/shared/session.py", line 296, in _send_response
+        |     await self._write_stream.send(JSONRPCMessage(jsonrpc_response))
+        |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/anyio/streams/memory.py", line 242, in send
+        |     self.send_nowait(item)
+        |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/anyio/streams/memory.py", line 211, in send_nowait
+        |     raise ClosedResourceError
+        | anyio.ClosedResourceError
+        +------------------------------------
+  + Exception Group Traceback (most recent call last):
+  |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/server.py", line 150, in <module>
+  |     mcp.run(transport="stdio")
+  |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/server/fastmcp/server.py", line 159, in run
+  |     anyio.run(self.run_stdio_async)
+  |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/anyio/_core/_eventloop.py", line 74, in run
+  |     return async_backend.run(func, args, {}, backend_options)
+  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/anyio/_backends/_asyncio.py", line 2310, in run
+  |     return runner.run(wrapper())
+  |            ^^^^^^^^^^^^^^^^^^^^^
+  |   File "/opt/homebrew/Cellar/python@3.11/3.11.14/Frameworks/Python.framework/Versions/3.11/lib/python3.11/asyncio/runners.py", line 118, in run
+  |     return self._loop.run_until_complete(task)
+  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |   File "/opt/homebrew/Cellar/python@3.11/3.11.14/Frameworks/Python.framework/Versions/3.11/lib/python3.11/asyncio/base_events.py", line 654, in run_until_complete
+  |     return future.result()
+  |            ^^^^^^^^^^^^^^^
+  |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/anyio/_backends/_asyncio.py", line 2298, in wrapper
+  |     return await func(*args)
+  |            ^^^^^^^^^^^^^^^^^
+  |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/server/fastmcp/server.py", line 460, in run_stdio_async
+  |     async with stdio_server() as (read_stream, write_stream):
+  |   File "/opt/homebrew/Cellar/python@3.11/3.11.14/Frameworks/Python.framework/Versions/3.11/lib/python3.11/contextlib.py", line 231, in __aexit__
+  |     await self.gen.athrow(typ, value, traceback)
+  |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/server/stdio.py", line 83, in stdio_server
+  |     async with anyio.create_task_group() as tg:
+  |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/anyio/_backends/_asyncio.py", line 772, in __aexit__
+  |     raise BaseExceptionGroup(
+  | ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception)
+  +-+---------------- 1 ----------------
+    | Exception Group Traceback (most recent call last):
+    |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/server/stdio.py", line 86, in stdio_server
+    |     yield read_stream, write_stream
+    |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/server/fastmcp/server.py", line 461, in run_stdio_async
+    |     await self._mcp_server.run(
+    |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/server/lowlevel/server.py", line 483, in run
+    |     async with AsyncExitStack() as stack:
+    |   File "/opt/homebrew/Cellar/python@3.11/3.11.14/Frameworks/Python.framework/Versions/3.11/lib/python3.11/contextlib.py", line 745, in __aexit__
+    |     raise exc_details[1]
+    |   File "/opt/homebrew/Cellar/python@3.11/3.11.14/Frameworks/Python.framework/Versions/3.11/lib/python3.11/contextlib.py", line 728, in __aexit__
+    |     cb_suppress = await cb(*exc_details)
+    |                   ^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/shared/session.py", line 210, in __aexit__
+    |     return await self._task_group.__aexit__(exc_type, exc_val, exc_tb)
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/anyio/_backends/_asyncio.py", line 772, in __aexit__
+    |     raise BaseExceptionGroup(
+    | ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception)
+    +-+---------------- 1 ----------------
+      | Exception Group Traceback (most recent call last):
+      |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/server/lowlevel/server.py", line 489, in run
+      |     async with anyio.create_task_group() as tg:
+      |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/anyio/_backends/_asyncio.py", line 772, in __aexit__
+      |     raise BaseExceptionGroup(
+      | ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception)
+      +-+---------------- 1 ----------------
+        | Traceback (most recent call last):
+        |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/server/lowlevel/server.py", line 517, in _handle_message
+        |     await self._handle_request(
+        |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/server/lowlevel/server.py", line 563, in _handle_request
+        |     await message.respond(response)
+        |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/shared/session.py", line 122, in respond
+        |     await self._session._send_response(  # type: ignore[reportPrivateUsage]
+        |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/shared/session.py", line 296, in _send_response
+        |     await self._write_stream.send(JSONRPCMessage(jsonrpc_response))
+        |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/anyio/streams/memory.py", line 242, in send
+        |     self.send_nowait(item)
+        |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/anyio/streams/memory.py", line 211, in send_nowait
+        |     raise ClosedResourceError
+        | anyio.ClosedResourceError
+        +------------------------------------
+  + Exception Group Traceback (most recent call last):
+  |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/server.py", line 150, in <module>
+  |     mcp.run(transport="stdio")
+  |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/server/fastmcp/server.py", line 159, in run
+  |     anyio.run(self.run_stdio_async)
+  |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/anyio/_core/_eventloop.py", line 74, in run
+  |     return async_backend.run(func, args, {}, backend_options)
+  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/anyio/_backends/_asyncio.py", line 2310, in run
+  |     return runner.run(wrapper())
+  |            ^^^^^^^^^^^^^^^^^^^^^
+  |   File "/opt/homebrew/Cellar/python@3.11/3.11.14/Frameworks/Python.framework/Versions/3.11/lib/python3.11/asyncio/runners.py", line 118, in run
+  |     return self._loop.run_until_complete(task)
+  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |   File "/opt/homebrew/Cellar/python@3.11/3.11.14/Frameworks/Python.framework/Versions/3.11/lib/python3.11/asyncio/base_events.py", line 654, in run_until_complete
+  |     return future.result()
+  |            ^^^^^^^^^^^^^^^
+  |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/anyio/_backends/_asyncio.py", line 2298, in wrapper
+  |     return await func(*args)
+  |            ^^^^^^^^^^^^^^^^^
+  |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/server/fastmcp/server.py", line 460, in run_stdio_async
+  |     async with stdio_server() as (read_stream, write_stream):
+  |   File "/opt/homebrew/Cellar/python@3.11/3.11.14/Frameworks/Python.framework/Versions/3.11/lib/python3.11/contextlib.py", line 231, in __aexit__
+  |     await self.gen.athrow(typ, value, traceback)
+  |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/server/stdio.py", line 83, in stdio_server
+  |     async with anyio.create_task_group() as tg:
+  |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/anyio/_backends/_asyncio.py", line 772, in __aexit__
+  |     raise BaseExceptionGroup(
+  | ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception)
+  +-+---------------- 1 ----------------
+    | Exception Group Traceback (most recent call last):
+    |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/server/stdio.py", line 86, in stdio_server
+    |     yield read_stream, write_stream
+    |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/server/fastmcp/server.py", line 461, in run_stdio_async
+    |     await self._mcp_server.run(
+    |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/server/lowlevel/server.py", line 483, in run
+    |     async with AsyncExitStack() as stack:
+    |   File "/opt/homebrew/Cellar/python@3.11/3.11.14/Frameworks/Python.framework/Versions/3.11/lib/python3.11/contextlib.py", line 745, in __aexit__
+    |     raise exc_details[1]
+    |   File "/opt/homebrew/Cellar/python@3.11/3.11.14/Frameworks/Python.framework/Versions/3.11/lib/python3.11/contextlib.py", line 728, in __aexit__
+    |     cb_suppress = await cb(*exc_details)
+    |                   ^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/shared/session.py", line 210, in __aexit__
+    |     return await self._task_group.__aexit__(exc_type, exc_val, exc_tb)
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/anyio/_backends/_asyncio.py", line 772, in __aexit__
+    |     raise BaseExceptionGroup(
+    | ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception)
+    +-+---------------- 1 ----------------
+      | Exception Group Traceback (most recent call last):
+      |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/server/lowlevel/server.py", line 489, in run
+      |     async with anyio.create_task_group() as tg:
+      |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/anyio/_backends/_asyncio.py", line 772, in __aexit__
+      |     raise BaseExceptionGroup(
+      | ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception)
+      +-+---------------- 1 ----------------
+        | Traceback (most recent call last):
+        |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/server/lowlevel/server.py", line 517, in _handle_message
+        |     await self._handle_request(
+        |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/server/lowlevel/server.py", line 563, in _handle_request
+        |     await message.respond(response)
+        |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/shared/session.py", line 122, in respond
+        |     await self._session._send_response(  # type: ignore[reportPrivateUsage]
+        |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/shared/session.py", line 296, in _send_response
+        |     await self._write_stream.send(JSONRPCMessage(jsonrpc_response))
+        |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/anyio/streams/memory.py", line 242, in send
+        |     self.send_nowait(item)
+        |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/anyio/streams/memory.py", line 211, in send_nowait
+        |     raise ClosedResourceError
+        | anyio.ClosedResourceError
+        +------------------------------------
+  + Exception Group Traceback (most recent call last):
+  |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/server.py", line 150, in <module>
+  |     mcp.run(transport="stdio")
+  |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/server/fastmcp/server.py", line 159, in run
+  |     anyio.run(self.run_stdio_async)
+  |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/anyio/_core/_eventloop.py", line 74, in run
+  |     return async_backend.run(func, args, {}, backend_options)
+  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/anyio/_backends/_asyncio.py", line 2310, in run
+  |     return runner.run(wrapper())
+  |            ^^^^^^^^^^^^^^^^^^^^^
+  |   File "/opt/homebrew/Cellar/python@3.11/3.11.14/Frameworks/Python.framework/Versions/3.11/lib/python3.11/asyncio/runners.py", line 118, in run
+  |     return self._loop.run_until_complete(task)
+  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |   File "/opt/homebrew/Cellar/python@3.11/3.11.14/Frameworks/Python.framework/Versions/3.11/lib/python3.11/asyncio/base_events.py", line 654, in run_until_complete
+  |     return future.result()
+  |            ^^^^^^^^^^^^^^^
+  |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/anyio/_backends/_asyncio.py", line 2298, in wrapper
+  |     return await func(*args)
+  |            ^^^^^^^^^^^^^^^^^
+  |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/server/fastmcp/server.py", line 460, in run_stdio_async
+  |     async with stdio_server() as (read_stream, write_stream):
+  |   File "/opt/homebrew/Cellar/python@3.11/3.11.14/Frameworks/Python.framework/Versions/3.11/lib/python3.11/contextlib.py", line 231, in __aexit__
+  |     await self.gen.athrow(typ, value, traceback)
+  |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/server/stdio.py", line 83, in stdio_server
+  |     async with anyio.create_task_group() as tg:
+  |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/anyio/_backends/_asyncio.py", line 772, in __aexit__
+  |     raise BaseExceptionGroup(
+  | ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception)
+  +-+---------------- 1 ----------------
+    | Exception Group Traceback (most recent call last):
+    |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/server/stdio.py", line 86, in stdio_server
+    |     yield read_stream, write_stream
+    |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/server/fastmcp/server.py", line 461, in run_stdio_async
+    |     await self._mcp_server.run(
+    |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/server/lowlevel/server.py", line 483, in run
+    |     async with AsyncExitStack() as stack:
+    |   File "/opt/homebrew/Cellar/python@3.11/3.11.14/Frameworks/Python.framework/Versions/3.11/lib/python3.11/contextlib.py", line 745, in __aexit__
+    |     raise exc_details[1]
+    |   File "/opt/homebrew/Cellar/python@3.11/3.11.14/Frameworks/Python.framework/Versions/3.11/lib/python3.11/contextlib.py", line 728, in __aexit__
+    |     cb_suppress = await cb(*exc_details)
+    |                   ^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/shared/session.py", line 210, in __aexit__
+    |     return await self._task_group.__aexit__(exc_type, exc_val, exc_tb)
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/anyio/_backends/_asyncio.py", line 772, in __aexit__
+    |     raise BaseExceptionGroup(
+    | ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception)
+    +-+---------------- 1 ----------------
+      | Exception Group Traceback (most recent call last):
+      |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/server/lowlevel/server.py", line 489, in run
+      |     async with anyio.create_task_group() as tg:
+      |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/anyio/_backends/_asyncio.py", line 772, in __aexit__
+      |     raise BaseExceptionGroup(
+      | ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception)
+      +-+---------------- 1 ----------------
+        | Traceback (most recent call last):
+        |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/server/lowlevel/server.py", line 517, in _handle_message
+        |     await self._handle_request(
+        |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/server/lowlevel/server.py", line 563, in _handle_request
+        |     await message.respond(response)
+        |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/shared/session.py", line 122, in respond
+        |     await self._session._send_response(  # type: ignore[reportPrivateUsage]
+        |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/shared/session.py", line 296, in _send_response
+        |     await self._write_stream.send(JSONRPCMessage(jsonrpc_response))
+        |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/anyio/streams/memory.py", line 242, in send
+        |     self.send_nowait(item)
+        |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/anyio/streams/memory.py", line 211, in send_nowait
+        |     raise ClosedResourceError
+        | anyio.ClosedResourceError
+        +------------------------------------
+[crew_research][worker][stderr]
+[crew_research] require_sources=True
+[crew_research] LinkUp: 6 allowed URLs in 6.82s
+[crew_research] Crew kickoff finished in 51.86s
+[crew_research] Total runtime: 58.68s
+[crew_research] completed in 60.07s
+  + Exception Group Traceback (most recent call last):
+  |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/../Multi-Agent-deep-researcher-mcp-windows-linux/server.py", line 150, in <module>
+  |     mcp.run(transport="stdio")
+  |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/server/fastmcp/server.py", line 159, in run
+  |     anyio.run(self.run_stdio_async)
+  |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/anyio/_core/_eventloop.py", line 74, in run
+  |     return async_backend.run(func, args, {}, backend_options)
+  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/anyio/_backends/_asyncio.py", line 2310, in run
+  |     return runner.run(wrapper())
+  |            ^^^^^^^^^^^^^^^^^^^^^
+  |   File "/opt/homebrew/Cellar/python@3.11/3.11.14/Frameworks/Python.framework/Versions/3.11/lib/python3.11/asyncio/runners.py", line 118, in run
+  |     return self._loop.run_until_complete(task)
+  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |   File "/opt/homebrew/Cellar/python@3.11/3.11.14/Frameworks/Python.framework/Versions/3.11/lib/python3.11/asyncio/base_events.py", line 654, in run_until_complete
+  |     return future.result()
+  |            ^^^^^^^^^^^^^^^
+  |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/anyio/_backends/_asyncio.py", line 2298, in wrapper
+  |     return await func(*args)
+  |            ^^^^^^^^^^^^^^^^^
+  |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/server/fastmcp/server.py", line 460, in run_stdio_async
+  |     async with stdio_server() as (read_stream, write_stream):
+  |   File "/opt/homebrew/Cellar/python@3.11/3.11.14/Frameworks/Python.framework/Versions/3.11/lib/python3.11/contextlib.py", line 231, in __aexit__
+  |     await self.gen.athrow(typ, value, traceback)
+  |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/server/stdio.py", line 83, in stdio_server
+  |     async with anyio.create_task_group() as tg:
+  |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/anyio/_backends/_asyncio.py", line 772, in __aexit__
+  |     raise BaseExceptionGroup(
+  | ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception)
+  +-+---------------- 1 ----------------
+    | Exception Group Traceback (most recent call last):
+    |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/server/stdio.py", line 86, in stdio_server
+    |     yield read_stream, write_stream
+    |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/server/fastmcp/server.py", line 461, in run_stdio_async
+    |     await self._mcp_server.run(
+    |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/server/lowlevel/server.py", line 483, in run
+    |     async with AsyncExitStack() as stack:
+    |   File "/opt/homebrew/Cellar/python@3.11/3.11.14/Frameworks/Python.framework/Versions/3.11/lib/python3.11/contextlib.py", line 745, in __aexit__
+    |     raise exc_details[1]
+    |   File "/opt/homebrew/Cellar/python@3.11/3.11.14/Frameworks/Python.framework/Versions/3.11/lib/python3.11/contextlib.py", line 728, in __aexit__
+    |     cb_suppress = await cb(*exc_details)
+    |                   ^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/shared/session.py", line 210, in __aexit__
+    |     return await self._task_group.__aexit__(exc_type, exc_val, exc_tb)
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/anyio/_backends/_asyncio.py", line 772, in __aexit__
+    |     raise BaseExceptionGroup(
+    | ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception)
+    +-+---------------- 1 ----------------
+      | Exception Group Traceback (most recent call last):
+      |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/server/lowlevel/server.py", line 489, in run
+      |     async with anyio.create_task_group() as tg:
+      |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/anyio/_backends/_asyncio.py", line 772, in __aexit__
+      |     raise BaseExceptionGroup(
+      | ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception)
+      +-+---------------- 1 ----------------
+        | Traceback (most recent call last):
+        |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/server/lowlevel/server.py", line 517, in _handle_message
+        |     await self._handle_request(
+        |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/server/lowlevel/server.py", line 563, in _handle_request
+        |     await message.respond(response)
+        |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/shared/session.py", line 122, in respond
+        |     await self._session._send_response(  # type: ignore[reportPrivateUsage]
+        |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/mcp/shared/session.py", line 296, in _send_response
+        |     await self._write_stream.send(JSONRPCMessage(jsonrpc_response))
+        |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/anyio/streams/memory.py", line 242, in send
+        |     self.send_nowait(item)
+        |   File "/Users/mohamedalkhyeli/projects/ai-engineering-hub/Multi-Agent-deep-researcher-mcp-windows-linux/.venv/lib/python3.11/site-packages/anyio/streams/memory.py", line 211, in send_nowait
+        |     raise ClosedResourceError
+        | anyio.ClosedResourceError
+        +------------------------------------
+[crew_research][worker][stderr]
+[crew_research] require_sources=False
+[crew_research] LinkUp: 6 allowed URLs in 11.06s
+[crew_research] Crew kickoff finished in 24.08s
+[crew_research] Total runtime: 35.14s
+[crew_research] completed in 36.34s

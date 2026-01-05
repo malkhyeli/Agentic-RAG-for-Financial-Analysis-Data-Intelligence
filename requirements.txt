@@ -1,0 +1,10 @@
+streamlit
+crewai
+groundx
+mcp
+anyio
+litellm
+python-dotenv
+pypdf
+fastapi
+apscheduler
