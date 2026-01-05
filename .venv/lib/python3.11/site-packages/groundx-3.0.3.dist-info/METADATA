@@ -1,0 +1,205 @@
+Metadata-Version: 2.1
+Name: groundx
+Version: 3.0.3
+Summary: 
+License: MIT
+Requires-Python: >=3.8,<4.0
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: MacOS
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: OS Independent
+Classifier: Operating System :: POSIX
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Typing :: Typed
+Provides-Extra: extract
+Requires-Dist: aiohttp (>=3.8.0)
+Requires-Dist: boto3 ; extra == "extract"
+Requires-Dist: celery ; extra == "extract"
+Requires-Dist: celery-types ; extra == "extract"
+Requires-Dist: dateparser ; extra == "extract"
+Requires-Dist: fastapi ; extra == "extract"
+Requires-Dist: google-api-python-client ; extra == "extract"
+Requires-Dist: google-api-python-client-stubs ; extra == "extract"
+Requires-Dist: google-auth-stubs ; extra == "extract"
+Requires-Dist: gspread ; extra == "extract"
+Requires-Dist: httpx (>=0.21.2)
+Requires-Dist: minio ; extra == "extract"
+Requires-Dist: pillow ; extra == "extract"
+Requires-Dist: pydantic (>=1.9.2)
+Requires-Dist: pydantic-core (>=2.18.2,<3.0.0)
+Requires-Dist: pytest ; extra == "extract"
+Requires-Dist: redis ; extra == "extract"
+Requires-Dist: requests (>=2.4.0)
+Requires-Dist: tqdm (>=4.60.0)
+Requires-Dist: types-PyYAML ; extra == "extract"
+Requires-Dist: types-boto3 ; extra == "extract"
+Requires-Dist: types-dateparser ; extra == "extract"
+Requires-Dist: types-tqdm (>=4.60.0)
+Requires-Dist: typing_extensions (>=4.0.0)
+Description-Content-Type: text/markdown
+
+# GroundX Python Library
+
+[![fern shield](https://img.shields.io/badge/%F0%9F%8C%BF-Built%20with%20Fern-brightgreen)](https://buildwithfern.com?utm_source=github&utm_medium=github&utm_campaign=readme&utm_source=https%3A%2F%2Fgithub.com%2Feyelevelai%2Fgroundx-python)
+[![pypi](https://img.shields.io/pypi/v/groundx)](https://pypi.python.org/pypi/groundx)
+
+The GroundX Python library provides convenient access to the GroundX API from Python.
+
+## Documentation
+
+API reference documentation is available [here](https://docs.eyelevel.ai/reference).
+
+## Installation
+
+```sh
+pip install groundx
+```
+
+## Reference
+
+A full reference for this library is available [here](https://github.com/eyelevelai/groundx-python/blob/main/reference.md).
+
+## Usage
+
+Instantiate and use the client with the following:
+
+```python
+from groundx import Document, GroundX
+
+client = GroundX(
+    api_key="YOUR_API_KEY",
+)
+
+client.ingest(
+    documents=[
+        Document(
+            bucket_id=1234,
+            file_name="my_file1.txt",
+            file_type="txt",
+            source_url="https://my.source.url.com/file1.txt",
+        )
+    ],
+)
+```
+
+## Async Client
+
+The SDK also exports an `async` client so that you can make non-blocking calls to our API.
+
+```python
+import asyncio
+
+from groundx import AsyncGroundX, Document
+
+client = AsyncGroundX(
+    api_key="YOUR_API_KEY",
+)
+
+async def main() -> None:
+    await client.ingest(
+        documents=[
+            Document(
+                bucket_id=1234,
+                file_name="my_file1.txt",
+                file_type="txt",
+                source_url="https://my.source.url.com/file1.txt",
+            )
+        ],
+    )
+
+asyncio.run(main())
+```
+
+## Exception Handling
+
+When the API returns a non-success status code (4xx or 5xx response), a subclass of the following error
+will be thrown.
+
+```python
+from groundx.core.api_error import ApiError
+
+try:
+    client.ingest(...)
+except ApiError as e:
+    print(e.status_code)
+    print(e.body)
+```
+
+## Advanced
+
+### Retries
+
+The SDK is instrumented with automatic retries with exponential backoff. A request will be retried as long
+as the request is deemed retriable and the number of retry attempts has not grown larger than the configured
+retry limit (default: 2).
+
+A request is deemed retriable when any of the following HTTP status codes is returned:
+
+- [408](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/408) (Timeout)
+- [429](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429) (Too Many Requests)
+- [5XX](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500) (Internal Server Errors)
+
+Use the `max_retries` request option to configure this behavior.
+
+```python
+client.ingest(..., request_options={
+    "max_retries": 1
+})
+```
+
+### Timeouts
+
+The SDK defaults to a 60 second timeout. You can configure this with a timeout option at the client or request level.
+
+```python
+
+from groundx import GroundX
+
+client = GroundX(
+    ...,
+    timeout=20.0,
+)
+
+
+# Override timeout for a specific method
+client.ingest(..., request_options={
+    "timeout_in_seconds": 1
+})
+```
+
+### Custom Client
+
+You can override the `httpx` client to customize it for your use-case. Some common use-cases include support for proxies
+and transports.
+```python
+import httpx
+from groundx import GroundX
+
+client = GroundX(
+    ...,
+    httpx_client=httpx.Client(
+        proxies="http://my.test.proxy.example.com",
+        transport=httpx.HTTPTransport(local_address="0.0.0.0"),
+    ),
+)
+```
+
+## Contributing
+
+While we value open-source contributions to this SDK, this library is generated programmatically.
+Additions made directly to this library would have to be moved over to our generation code,
+otherwise they would be overwritten upon the next generated release. Feel free to open a PR as
+a proof of concept, but know that we will not be able to merge it as-is. We suggest opening
+an issue first to discuss with us!
+
+On the other hand, contributions to the README are always very welcome!
+

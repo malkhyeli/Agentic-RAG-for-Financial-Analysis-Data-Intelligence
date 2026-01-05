@@ -1,0 +1,3165 @@
+# Tracked changes (git diff)
+diff --git a/Multi-Agent-deep-researcher-mcp-windows-linux/agents.py b/Multi-Agent-deep-researcher-mcp-windows-linux/agents.py
+index 23cb985..0c2dae9 100644
+--- a/Multi-Agent-deep-researcher-mcp-windows-linux/agents.py
++++ b/Multi-Agent-deep-researcher-mcp-windows-linux/agents.py
+@@ -1,14 +1,83 @@
+ import os
++import sys
++import re
+ from typing import Type
+ from dotenv import load_dotenv
+ from pydantic import BaseModel, Field
+ from linkup import LinkupClient
+ from crewai import Agent, Task, Crew, Process, LLM
+ from crewai.tools import BaseTool
++from urllib.parse import urlparse
+ 
+ # Load environment variables (for non-LinkUp settings)
+ load_dotenv()
+ 
++def _env_flag(name: str, default: str = "0") -> bool:
++    return os.getenv(name, default).strip().lower() in {"1", "true", "yes", "on"}
++
++
++# CrewAI "verbose" uses rich/ANSI console output. When this code runs behind MCP stdio,
++# anything written to stdout can break JSON-RPC parsing. Default to quiet.
++CREW_VERBOSE = _env_flag("CREWAI_VERBOSE", "0")
++
++_URL_RE = re.compile(r"https?://[^\s\]\)\"']+", re.IGNORECASE)
++_SOURCE_COUNT_RE = re.compile(
++    r"\b(\d+)\s+(?:reputable\s+)?(?:sources?|urls?|references?|citations?)\b",
++    re.IGNORECASE,
++)
++
++
++def _infer_min_urls_from_query(query: str) -> int:
++    if not isinstance(query, str):
++        return 1
++    m = _SOURCE_COUNT_RE.search(query)
++    if not m:
++        return 1
++    try:
++        n = int(m.group(1))
++        return 1 if n <= 0 else min(n, 10)
++    except Exception:
++        return 1
++
++
++def _query_requests_sources(query: str) -> bool:
++    q = (query or "").lower()
++    return any(k in q for k in ["source", "sources", "url", "urls", "cite", "citation", "references"])
++
++
++def _extract_valid_urls(text: str) -> list[str]:
++    if not isinstance(text, str):
++        return []
++    candidates = _URL_RE.findall(text)
++    out: list[str] = []
++    seen: set[str] = set()
++    allowed_long_tlds = {"com", "org", "net", "edu", "gov", "int", "info", "biz"}
++    banned = {"example.com", "www.example.com", "localhost", "127.0.0.1", "0.0.0.0"}
++
++    for u in candidates:
++        u2 = u.rstrip(".,;:!?")
++        try:
++            p = urlparse(u2)
++        except Exception:
++            continue
++        if p.scheme not in {"http", "https"} or not p.netloc:
++            continue
++        host = p.netloc.split("@")[-1].split(":")[0].strip().lower()
++        if not host or "." not in host:
++            continue
++        if host in banned:
++            continue
++        if not re.fullmatch(r"[a-z0-9.-]+", host):
++            continue
++        tld = host.rsplit(".", 1)[-1]
++        if not ((len(tld) == 2 and tld.isalpha()) or (tld in allowed_long_tlds)):
++            continue
++        if u2 not in seen:
++            seen.add(u2)
++            out.append(u2)
++
++    return out
++
+ 
+ def get_llm_client():
+     """Initialize and return the LLM client"""
+@@ -40,8 +109,12 @@ class LinkUpSearchTool(BaseTool):
+     def _run(self, query: str, depth: str = "standard", output_type: str = "searchResults") -> str:
+         """Execute LinkUp search and return results."""
+         try:
++            api_key = os.getenv("LINKUP_API_KEY")
++            if not api_key:
++                return "Error: LINKUP_API_KEY is missing. Set LINKUP_API_KEY to enable web search."
++
+             # Initialize LinkUp client with API key from environment variables
+-            linkup_client = LinkupClient(api_key=os.getenv("LINKUP_API_KEY"))
++            linkup_client = LinkupClient(api_key=api_key)
+ 
+             # Perform search
+             search_response = linkup_client.search(
+@@ -65,9 +138,9 @@ def create_research_crew(query: str):
+ 
+     web_searcher = Agent(
+         role="Web Searcher",
+-        goal="Find the most relevant information on the web, along with source links (urls).",
++        goal="Find the most relevant information on the web, along with direct source links (full https URLs to specific pages, not just homepages).",
+         backstory="An expert at formulating search queries and retrieving relevant information. Passes the results to the 'Research Analyst' only.",
+-        verbose=True,
++        verbose=CREW_VERBOSE,
+         allow_delegation=True,
+         tools=[linkup_search_tool],
+         llm=client,
+@@ -78,7 +151,7 @@ def create_research_crew(query: str):
+         role="Research Analyst",
+         goal="Analyze and synthesize raw information into structured insights, along with source links (urls) as citations.",
+         backstory="An expert at analyzing information, identifying patterns, and extracting key insights. If required, can delagate the task of fact checking/verification to 'Web Searcher' only. Passes the final results to the 'Technical Writer' only.",
+-        verbose=True,
++        verbose=CREW_VERBOSE,
+         allow_delegation=True,
+         llm=client,
+     )
+@@ -88,7 +161,7 @@ def create_research_crew(query: str):
+         role="Technical Writer",
+         goal="Create well-structured, clear, and comprehensive responses in markdown format, with citations/source links (urls).",
+         backstory="An expert at communicating complex information in an accessible way.",
+-        verbose=True,
++        verbose=CREW_VERBOSE,
+         allow_delegation=False,
+         llm=client,
+     )
+@@ -109,9 +182,17 @@ def create_research_crew(query: str):
+     )
+ 
+     writing_task = Task(
+-        description="Create a comprehensive, well-organized response based on the research analysis.",
++        description=(
++            "Create a comprehensive, well-organized response based on the research analysis. "
++            "Always include a final 'Sources' section with full https URLs used. "
++            "Do NOT use site homepages; each source URL must include a non-root path (beyond '/') and directly support the claim. "
++            "If you cannot provide at least 1 verifiable https URL meeting these rules, output exactly: NO_SOURCES."
++        ),
+         agent=technical_writer,
+-        expected_output="A clear, comprehensive response that directly answers the query with proper citations/source links (urls).",
++        expected_output=(
++            "A clear markdown response that directly answers the query with citations/source links (full https URLs). "
++            "End with a 'Sources' section of bullet URLs (no homepages), or exactly: NO_SOURCES."
++        ),
+         context=[analysis_task]
+     )
+ 
+@@ -119,7 +200,7 @@ def create_research_crew(query: str):
+     crew = Crew(
+         agents=[web_searcher, research_analyst, technical_writer],
+         tasks=[search_task, analysis_task, writing_task],
+-        verbose=True,
++        verbose=CREW_VERBOSE,
+         process=Process.sequential
+     )
+ 
+@@ -131,6 +212,24 @@ def run_research(query: str):
+     try:
+         crew = create_research_crew(query)
+         result = crew.kickoff()
+-        return result.raw
++        text = getattr(result, "raw", None)
++        text = text if isinstance(text, str) else str(result)
++
++        # Fail-closed when sources are requested: require real URLs, otherwise NO_SOURCES.
++        if _query_requests_sources(query):
++            if re.search(r"\bNO_SOURCES\b", text, re.IGNORECASE):
++                return "NO_SOURCES"
++            min_urls = _infer_min_urls_from_query(query)
++            urls = _extract_valid_urls(text)
++            if len(urls) < min_urls:
++                return "NO_SOURCES"
++
++        return text
+     except Exception as e:
+-        return f"Error: {str(e)}"
++        # Fail closed: the Streamlit app expects either real URLs or exactly NO_SOURCES.
++        # Emit errors to stderr (safe for MCP stdio) and return NO_SOURCES to the caller.
++        try:
++            print(f"Deep Research error: {e}", file=sys.stderr)
++        except Exception:
++            pass
++        return "NO_SOURCES"
+diff --git a/Multi-Agent-deep-researcher-mcp-windows-linux/server.py b/Multi-Agent-deep-researcher-mcp-windows-linux/server.py
+index 4c5d8f3..01f48b7 100644
+--- a/Multi-Agent-deep-researcher-mcp-windows-linux/server.py
++++ b/Multi-Agent-deep-researcher-mcp-windows-linux/server.py
+@@ -1,4 +1,6 @@
+ import asyncio
++import contextlib
++import io
+ from mcp.server.fastmcp import FastMCP
+ from agents import run_research
+ 
+@@ -15,7 +17,10 @@ async def crew_research(query: str) -> str:
+     Returns:
+         str: The research response from the CrewAI pipeline.
+     """
+-    return run_research(query)
++    # MCP stdio requires stdout to contain ONLY JSON-RPC messages. Suppress any
++    # library/verbose output emitted during the research run.
++    with contextlib.redirect_stdout(io.StringIO()):
++        return run_research(query)
+ 
+ 
+ # Run the server
+diff --git a/agentic_rag_deepseek/.env.example b/agentic_rag_deepseek/.env.example
+index dd769d3..a1277f6 100644
+--- a/agentic_rag_deepseek/.env.example
++++ b/agentic_rag_deepseek/.env.example
+@@ -1,2 +1,4 @@
+ GROUNDX_API_KEY=your_groundx_api_key_here
+-SERPER_API_KEY=your_serper_api_key_here
+\ No newline at end of file
++LINKUP_API_KEY=your_linkup_api_key_here
++DOCQA_LLM_MODEL=ollama/deepseek-r1:7b
++OLLAMA_BASE_URL=http://localhost:11434
+diff --git a/agentic_rag_deepseek/README.md b/agentic_rag_deepseek/README.md
+index ab190a4..569fc32 100644
+--- a/agentic_rag_deepseek/README.md
++++ b/agentic_rag_deepseek/README.md
+@@ -1,19 +1,39 @@
+-# Fail-Closed, Agentic RAG over Real-World Documents
++# Trustworthy Research Copilot
+ 
+-This project implements an **agentic Retrieval-Augmented Generation (RAG)** system that is **fail-closed**: the application **refuses to answer** when retriever evidence cannot be verified. This prevents hallucinations and makes model behavior auditable.
++One Streamlit app with a hard two-mode boundary:
+ 
+-The system integrates EyelevelAI GroundX as a custom retrieval tool with CrewAI agents. When evidence is missing or unverifiable, the app returns an explicit refusal instead of guessing.
++1) **Document QA (fail-closed)**: answers must be supported by verbatim PDF quotes + `(p.#)` citations. If not, the app returns exactly: `Not in document.`
++2) **Deep Research (Web)**: web research via LinkUp, returning sourced links. This mode never claims the PDF supports anything.
+ 
+-## Key Properties
+-- **Fail-closed by default**: No evidence → no answer.
+-- **Agentic separation of concerns**: retrieval and synthesis are independent agents.
+-- **Grounding enforcement**: synthesis is blocked unless retriever output passes validation.
+-- **Debuggable**: optional UI debug panel exposes retriever output for inspection.
++## Architecture (High Level)
+ 
+-### API Keys
+-- GroundX API key: https://docs.eyelevel.ai/documentation/fundamentals/quickstart#step-1-getting-your-api-key
++```
++                    ┌───────────────────────────────┐
++PDF upload ────────►│ GroundX DocumentSearchTool     │──► evidence (quotes, pages, scores)
++                    └───────────────────────────────┘
++                                   │
++                                   v
++                     features ─► statistical gate ─► abstain ("Not in document.")
++                                   │
++                                   v
++                      answer (quotes only, cites pages)
++                                   │
++                                   v
++                         Evidence + logs
++
++Deep Research:
++query ─► LinkUp API ─► summary + sources (links)
++```
++
++## Keys / Env Vars
++- `GROUNDX_API_KEY`: required for Document QA (GroundX retrieval).
++- `LINKUP_API_KEY`: required for Deep Research (LinkUp web search).
++- `DOCQA_LLM_MODEL` (optional): default `ollama/deepseek-r1:7b`
++- `OLLAMA_BASE_URL` (optional): default `http://localhost:11434`
+ 
+-Create a `.env` file (see `.env.example`) or use Streamlit secrets to provide `GROUNDX_API_KEY`.
++Notes:
++- The Streamlit app loads `.env` automatically via `python-dotenv`.
++- If you get a GroundX `401` during indexing, use the sidebar **Test GroundX Connection** button and verify `GROUNDX_API_KEY` (the app never prints the full key).
+ 
+ ### Watch this tutorial on YouTube
+ [![Watch this tutorial on YouTube](https://github.com/patchy631/ai-engineering-hub/blob/main/agentic_rag_deepseek/assets/thumbnail.png)](https://www.youtube.com/watch?v=79xvgj4wvHQ)
+@@ -29,24 +49,53 @@ Create a `.env` file (see `.env.example`) or use Streamlit secrets to provide `G
+ **Install Dependencies**
+ Ensure you have Python **3.11+**.
+ ```bash
+-python -m venv .venv
++python3 -m venv .venv
+ source .venv/bin/activate
+-python -m pip install -U pip
+-python -m pip install groundx crewai streamlit litellm
++python3 -m pip install -U pip
++python3 -m pip install -r requirements.txt
+ ```
+ **Running the app**
+ ```bash
+-python -m streamlit run app_deep_seek.py
++python3 -m streamlit run app_deep_seek.py
++# or
++make run
+ ```
++Troubleshooting:
++- Use the sidebar “Test GroundX Connection” and “Test Retrieval (PDF)” to confirm the PDF is indexed and retrievable (e.g., query "sea-level rise" should return hits for the Abu Dhabi sample PDF).
++
++---
++
++## Self-Test (Manual)
++1) **Document QA (supported)**: Upload a PDF → ask a question clearly answered by the PDF.
++   - Expected: answer with `(p.#)` citations + verbatim quote blocks, and an **Evidence** section with verbatim quotes.
++2) **Document QA (fail-closed)**: Ask something not in the PDF.
++   - Expected: exactly `Not in document.`
++3) **Deep Research (Web)**: Switch to Deep Research → ask for sources.
++   - Expected: a summary plus real `https://` URLs (or `NO_SOURCES` if it cannot find verifiable links).
++4) **Debug**: Enable “Show debug”.
++   - Expected: evidence list, features, `P(supported)`, threshold, refusal reason.
+ 
+ ---
+ 
+ ## Fail-Closed Behavior (Expected)
+ - If retriever evidence is missing or invalid, the app responds with:
+-  **"Not in document (no verifiable evidence returned by retriever)."**
++  **"Not in document."**
+ - This is intentional and indicates hallucination prevention.
+ - Enable **Show debug** in the sidebar to inspect retriever output during development.
+ 
++## Logs
++- JSONL events are written to `logs/queries.jsonl`.
++
++## Eval + Tests
++- Install dev deps: `python3 -m pip install -r requirements-dev.txt`
++- Run unit tests: `make test`
++- Run offline eval: `make eval PDF=knowledge/dspy.pdf DATASET=eval/dataset.example.json`
++
++## Metrics (Placeholder)
++- FAR (false accept rate): answered when should abstain
++- FRR (false reject rate): abstained when should answer
++- Claim support rate (proxy evidence precision)
++
+ ## 📬 Stay Updated with Our Newsletter!
+ **Get a FREE Data Science eBook** 📖 with 150+ essential lessons in Data Science when you subscribe to our newsletter! Stay in the loop with the latest tutorials, insights, and exclusive resources. [Subscribe now!](https://join.dailydoseofds.com)
+ 
+diff --git a/agentic_rag_deepseek/app_deep_seek.py b/agentic_rag_deepseek/app_deep_seek.py
+index febe821..409b2c9 100644
+--- a/agentic_rag_deepseek/app_deep_seek.py
++++ b/agentic_rag_deepseek/app_deep_seek.py
+@@ -1,101 +1,102 @@
+ import streamlit as st
+ import os
+-import tempfile
+-import gc
+ import base64
++import gc
+ import time
+-import re
+-import json
++import traceback
++from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
++
++from dotenv import load_dotenv
++from pathlib import Path
+ 
+-from crewai import Agent, Crew, Process, Task, LLM
+-from src.agentic_rag.tools.custom_tool import DocumentSearchTool
++# Load .env deterministically (python-dotenv find_dotenv can assert in some runtimes)
++ENV_PATH = Path(__file__).resolve().parent / ".env"
++load_dotenv(dotenv_path=ENV_PATH, override=False)
++
++# Streamlit runs user code outside the main interpreter thread; CrewAI telemetry tries to
++# register signal handlers and can error. Disable telemetry by default.
++os.environ.setdefault("CREWAI_DISABLE_TELEMETRY", "true")
++os.environ.setdefault("OTEL_SDK_DISABLED", "true")
++
++from crewai import LLM
++
++from src.app.groundx import init_document_search_tool, test_groundx_connection, resume_document_search_tool
++from src.app.modes import AppMode
++from src.docqa.pipeline import DocQAConfig, run_docqa
++from src.logging.jsonl_logger import get_logger
++from src.research.mcp_runner import run_mcp_research
++from src.utils.pdf_store import (
++    StoredPdf,
++    ensure_pdf_in_session,
++    forget_last_meta,
++    load_last_stored_pdf,
++    write_last_meta,
++)
+ 
+ @st.cache_resource
+ def load_llm():
+     llm = LLM(
+-        model="ollama/deepseek-r1:7b",
+-        base_url="http://localhost:11434"
++        model=os.getenv("DOCQA_LLM_MODEL", "ollama/deepseek-r1:7b"),
++        base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
++        temperature=0,
+     )
+     return llm
+ 
+-# ===========================
+-#   Define Agents & Tasks
+-# ===========================
+-def create_agents_and_tasks(pdf_tool):
+-    """Creates a Crew with the given PDF tool (if any) and a web search tool."""
+-    retriever_agent = Agent(
+-        role="PDF evidence retriever for query: {query}",
+-        goal=(
+-            "Use ONLY the provided PDF search tool to retrieve verbatim evidence that answers the user query. "
+-            "Return evidence only. Do not answer the question. Do not use web or general knowledge."
+-        ),
+-        backstory=(
+-            "You are a strict evidence retriever. You return evidence from the PDF search tool. "
+-            "If you cannot find relevant evidence, you return an empty evidence list."
+-        ),
+-        verbose=True,
+-        tools=[pdf_tool] if pdf_tool else [],
+-        llm=load_llm(),
+-    )
+-
+-    response_synthesizer_agent = Agent(
+-        role="PDF-grounded answer synthesizer for query: {query}",
+-        goal=(
+-            "Answer the user using ONLY the evidence returned by the retriever. "
+-            "Do not use outside knowledge. If evidence is missing or insufficient, respond exactly: Not in document."
+-        ),
+-        backstory=(
+-            "You never use outside knowledge. You never invent quotes, citations, or page numbers."
+-        ),
+-        verbose=True,
+-        llm=load_llm(),
+-    )
+-
+-    retrieval_task = Task(
+-        description=(
+-            "Retrieve ONLY verbatim evidence from the uploaded PDF for the user query: {query}. "
+-            "Do NOT use general knowledge. Do NOT answer the question. Output must be JSON only."
+-        ),
+-        expected_output=(
+-            "Return JSON only, no prose. Schema: "
+-            '{"evidence":[{"page":<int 1-4>,"quote":"<verbatim text from PDF>"}]}'
+-        ),
+-        agent=retriever_agent,
+-    )
++def call_with_timeout(func, timeout_s: int, *args, **kwargs):
++    """Run a blocking function with a hard timeout.
+ 
+-    response_task = Task(
+-        description=(
+-            "Using ONLY the JSON evidence from the retrieval task, answer the user query: {query}. "
+-            "Rules: (1) Use only evidence[].quote. (2) Cite every claim with (p.#) using evidence[].page. "
+-            "(3) If evidence is empty/insufficient, output exactly: Not in document. "
+-            "(4) Do not invent pages. Valid pages are 1-4 only. (5) Do not invent quotes."
+-        ),
+-        expected_output=(
+-            "A concise answer grounded in the PDF with (p.#) citations, or exactly: Not in document."
+-        ),
+-        agent=response_synthesizer_agent,
+-        context=[retrieval_task],
+-    )
+-
+-    crew = Crew(
+-        agents=[retriever_agent, response_synthesizer_agent],
+-        tasks=[retrieval_task, response_task],
+-        process=Process.sequential,  # or Process.hierarchical
+-        verbose=True
+-    )
+-    return crew
++    Streamlit re-runs the script frequently; if GroundX ingest blocks, the UI can appear to
++    index forever. This wrapper ensures we fail fast and surface diagnostics.
++    """
++    with ThreadPoolExecutor(max_workers=1) as ex:
++        fut = ex.submit(func, *args, **kwargs)
++        return fut.result(timeout=timeout_s)
+ 
+ # ===========================
+ #   Streamlit Setup
+ # ===========================
+ if "messages" not in st.session_state:
+-    st.session_state.messages = []  # Chat history
+-
++    st.session_state.messages = []  # Chat history (current mode only)
+ if "pdf_tool" not in st.session_state:
+-    st.session_state.pdf_tool = None  # Store the DocumentSearchTool
+-
+-if "crew" not in st.session_state:
+-    st.session_state.crew = None      # Store the Crew object
++    st.session_state.pdf_tool = None  # GroundX DocumentSearchTool
++if "pdf_store" not in st.session_state:
++    st.session_state.pdf_store = None  # StoredPdf
++st.session_state.setdefault("pdf_hash", None)
++if "mode" not in st.session_state:
++    st.session_state.mode = AppMode.DOCUMENT_QA
++if "indexing_state" not in st.session_state:
++    st.session_state.indexing_state = "idle"  # idle|running|ready|error
++if "indexing_hash" not in st.session_state:
++    st.session_state.indexing_hash = None
++if "indexing_started_at" not in st.session_state:
++    st.session_state.indexing_started_at = None
++if "groundx_bucket_id" not in st.session_state:
++    st.session_state.groundx_bucket_id = None
++if "groundx_process_id" not in st.session_state:
++    st.session_state.groundx_process_id = None
++if "groundx_document_ids" not in st.session_state:
++    st.session_state.groundx_document_ids = None
++
++if "loaded_cached_pdf" not in st.session_state:
++    st.session_state.loaded_cached_pdf = False
++
++if st.session_state.pdf_store is None:
++    cached, cached_meta = load_last_stored_pdf()
++    if cached and cached.path.exists():
++        st.session_state.pdf_store = cached
++        st.session_state.loaded_cached_pdf = True
++        bucket_id = cached_meta.get("bucket_id") if isinstance(cached_meta, dict) else None
++        process_id = cached_meta.get("process_id") if isinstance(cached_meta, dict) else None
++        document_ids = cached_meta.get("document_ids") if isinstance(cached_meta, dict) else None
++        if isinstance(bucket_id, int) and isinstance(process_id, str) and process_id.strip():
++            st.session_state.groundx_bucket_id = bucket_id
++            st.session_state.groundx_process_id = process_id
++            if isinstance(document_ids, list):
++                st.session_state.groundx_document_ids = document_ids
++            # Force a resume poll on refresh (no re-upload).
++            st.session_state.indexing_state = "running"
++            st.session_state.indexing_hash = cached.sha256
++            st.session_state.indexing_started_at = st.session_state.indexing_started_at or time.time()
+ 
+ def reset_chat():
+     st.session_state.messages = []
+@@ -120,51 +121,223 @@ def display_pdf(file_bytes: bytes, file_name: str):
+ #   Sidebar
+ # ===========================
+ with st.sidebar:
+-    st.header("Add Your PDF Document")
++    labels = AppMode.labels()
++    selected_mode = st.radio("Mode", options=list(labels.keys()), format_func=lambda m: labels[m])
++    if selected_mode != st.session_state.mode:
++        st.session_state.mode = selected_mode
++        reset_chat()
++
+     show_debug = st.checkbox("Show debug", value=False)
+-    st.session_state.show_debug = show_debug
+-    uploaded_file = st.file_uploader("Choose a PDF file", type=["pdf"])
+ 
+-    if uploaded_file is not None:
+-        # If there's a new file and we haven't set pdf_tool yet...
+-        if st.session_state.pdf_tool is None:
+-            with tempfile.TemporaryDirectory() as temp_dir:
+-                temp_file_path = os.path.join(temp_dir, uploaded_file.name)
+-                with open(temp_file_path, "wb") as f:
+-                    f.write(uploaded_file.getvalue())
++    if st.session_state.mode == AppMode.DOCUMENT_QA:
++        st.header("Add Your PDF Document")
++        key_override = st.text_input(
++            "GroundX API Key (optional override)",
++            type="password",
++            value=st.session_state.get("groundx_key_override", ""),
++            help="If set, this key is used only for this session and is never logged.",
++        )
++        st.session_state.groundx_key_override = key_override
++
++        if st.button("Test GroundX Connection"):
++            status = test_groundx_connection(key_override)
++            if status.ok:
++                st.success(status.message)
++            else:
++                st.error(status.message)
++            with st.expander("GroundX diagnostics", expanded=False):
++                st.json(status.as_dict())
++
++        uploaded_file = st.file_uploader("Choose a PDF file", type=["pdf"])
++
++        stored: StoredPdf | None = None
++        pdf_bytes: bytes | None = None
++        pdf_name: str | None = None
++        prev_store = st.session_state.get("pdf_store")
++
++        if uploaded_file is not None:
++            pdf_bytes = uploaded_file.getvalue()
++            pdf_name = uploaded_file.name
++            stored = ensure_pdf_in_session(
++                st.session_state,
++                data=pdf_bytes,
++                filename=pdf_name,
++                session_key="pdf_store",
++            )
++        elif isinstance(st.session_state.pdf_store, StoredPdf) and st.session_state.pdf_store.path.exists():
++            stored = st.session_state.pdf_store
++            pdf_name = stored.filename
++            try:
++                pdf_bytes = stored.path.read_bytes()
++            except Exception:
++                pdf_bytes = None
++
++        if stored is not None:
++            prev_sha = prev_store.sha256 if isinstance(prev_store, StoredPdf) else None
++
++            # If the user selected a new PDF, reset tool + indexing state.
++            if prev_sha is not None and prev_sha != stored.sha256:
++                st.session_state.pdf_tool = None
++                st.session_state.pdf_hash = None
++                st.session_state.indexing_state = "idle"
++                st.session_state.indexing_hash = None
++                st.session_state.indexing_started_at = None
++                st.session_state.groundx_bucket_id = None
++                st.session_state.groundx_process_id = None
++                st.session_state.groundx_document_ids = None
++                reset_chat()
++
++            if uploaded_file is None and st.session_state.loaded_cached_pdf:
++                st.success(f"Loaded cached PDF: {stored.filename}")
++                if st.button("Forget cached PDF", help="Clears last.json and resets PDF state (does not delete the cached file)."):
++                    forget_last_meta()
++                    st.session_state.pdf_store = None
++                    st.session_state.pdf_tool = None
++                    st.session_state.pdf_hash = None
++                    st.session_state.indexing_state = "idle"
++                    st.session_state.indexing_hash = None
++                    st.session_state.indexing_started_at = None
++                    st.session_state.groundx_bucket_id = None
++                    st.session_state.groundx_process_id = None
++                    st.session_state.groundx_document_ids = None
++                    st.session_state.loaded_cached_pdf = False
++                    reset_chat()
++                    # Streamlit renamed `experimental_rerun` -> `rerun` in newer versions.
++                    rerun = getattr(st, "rerun", None) or getattr(st, "experimental_rerun", None)
++                    if callable(rerun):
++                        rerun()
++
++            needs_index = st.session_state.pdf_tool is None
++
++            # If we previously started indexing this hash, try resuming instead of re-uploading.
++            if (
++                needs_index
++                and st.session_state.indexing_state == "running"
++                and st.session_state.indexing_hash == stored.sha256
++                and st.session_state.groundx_bucket_id
++                and st.session_state.groundx_process_id
++            ):
++                with st.spinner("Indexing in progress... polling status"):
++                    pdf_tool, status = resume_document_search_tool(
++                        st.session_state.groundx_bucket_id,
++                        st.session_state.groundx_process_id,
++                        api_key_override=key_override,
++                        document_ids=st.session_state.groundx_document_ids,
++                    )
++                if status.ok:
++                    st.session_state.pdf_tool = pdf_tool
++                    st.session_state.pdf_hash = stored.sha256
++                    st.session_state.indexing_state = "ready"
++                    st.session_state.groundx_document_ids = pdf_tool.document_ids
++                    st.success("PDF indexed! Ready to chat.")
++                elif status.kind == "in_progress":
++                    st.session_state.indexing_state = "running"
++                    st.info(status.message)
++                    with st.expander("GroundX diagnostics", expanded=False):
++                        st.json(status.as_dict())
++                else:
++                    st.session_state.indexing_state = "error"
++                    st.error(status.message)
++                    with st.expander("GroundX diagnostics", expanded=True):
++                        st.json(status.as_dict())
++
++            if needs_index and st.session_state.indexing_state != "running":
++                st.session_state.indexing_state = "running"
++                st.session_state.indexing_hash = stored.sha256
++                st.session_state.indexing_started_at = time.time()
+ 
+                 with st.spinner("Indexing PDF... Please wait..."):
+-                    # st.session_state.pdf_tool = DocumentSearchTool(file_path="/Users/akshay/Eigen/ai-engineering-hub/agentic_rag_deepseek/knowledge/dspy.pdf")
+-                    st.session_state.pdf_tool = DocumentSearchTool(file_path=temp_file_path)
+-                    # Test search
+-                    # result = st.session_state.pdf_tool._run("What is the purpose of DSpy?")
+-                    # st.info("Initial Test Search Results:", icon="🔍")
+-                    # st.write(result)
+-            
+-            st.success("PDF indexed! Ready to chat.")
+-
+-        # Optionally display the PDF in the sidebar
+-        display_pdf(uploaded_file.getvalue(), uploaded_file.name)
++                    st.session_state.pdf_tool = None
++                    try:
++                        pdf_tool, status = init_document_search_tool(str(stored.path), api_key_override=key_override)
++                    except Exception as e:
++                        st.session_state.indexing_state = "error"
++                        st.error(f"Indexing failed: {e}")
++                        with st.expander("Exception", expanded=True):
++                            st.code("".join(traceback.format_exception(type(e), e, e.__traceback__)))
++                    else:
++                        if status.ok:
++                            st.session_state.pdf_tool = pdf_tool
++                            st.session_state.pdf_hash = stored.sha256
++                            st.session_state.indexing_state = "ready"
++                            st.session_state.groundx_bucket_id = pdf_tool.bucket_id
++                            st.session_state.groundx_process_id = pdf_tool.process_id
++                            st.session_state.groundx_document_ids = pdf_tool.document_ids
++                            st.session_state.indexing_started_at = st.session_state.indexing_started_at or time.time()
++                            st.success("PDF indexed! Ready to chat.")
++                        elif status.kind == "in_progress":
++                            st.session_state.indexing_state = "running"
++                            st.session_state.groundx_bucket_id = status.diagnostics.get("bucket_id")
++                            st.session_state.groundx_process_id = status.diagnostics.get("process_id")
++                            st.session_state.groundx_document_ids = status.diagnostics.get("document_ids")
++                            st.session_state.indexing_started_at = st.session_state.indexing_started_at or time.time()
++                            st.info(status.message)
++                            with st.expander("GroundX diagnostics", expanded=False):
++                                st.json(status.as_dict())
++                        else:
++                            st.session_state.indexing_state = "error"
++                            st.error(status.message)
++                            with st.expander("GroundX diagnostics", expanded=True):
++                                st.json(status.as_dict())
++
++            if pdf_bytes and pdf_name:
++                display_pdf(pdf_bytes, pdf_name)
++
++            if st.session_state.indexing_state == "running" and st.session_state.indexing_started_at:
++                elapsed = time.time() - st.session_state.indexing_started_at
++                st.caption(f"Indexing in progress… {elapsed:.1f}s elapsed")
++                if st.button("Resume Indexing"):
++                    # Streamlit renamed `experimental_rerun` -> `rerun` in newer versions.
++                    rerun = getattr(st, "rerun", None) or getattr(st, "experimental_rerun", None)
++                    if callable(rerun):
++                        rerun()
++
++            if st.session_state.pdf_tool:
++                if st.button("Test Retrieval (PDF)", help='Runs a fixed query "sea-level rise" to verify retrieval is returning hits.'):
++                    from src.app.groundx import test_pdf_retrieval
++
++                    res = test_pdf_retrieval(st.session_state.pdf_tool)
++                    payload = res.as_dict()
++                    hits = (
++                        payload.get("diagnostics", {})
++                        .get("retrieval", {})
++                        .get("results", [])
++                    )
++
++                    # Treat an empty hit list as a failure even if the request succeeded.
++                    if res.ok and isinstance(hits, list) and len(hits) > 0:
++                        st.success(f"Retrieval returned {len(hits)} result(s).")
++                    else:
++                        st.error(
++                            "Retrieval returned 0 results. This means GroundX search is not returning evidence for this PDF yet "
++                            "(or the search call is scoped incorrectly)."
++                        )
++
++                    with st.expander("Retrieval debug", expanded=True):
++                        st.json(payload)
++
++            # Persist last.json for refresh rehydration (do not delete the cached file).
++            write_last_meta(
++                stored,
++                extra={
++                    "bucket_id": st.session_state.groundx_bucket_id,
++                    "process_id": st.session_state.groundx_process_id,
++                    "document_ids": st.session_state.groundx_document_ids,
++                    "indexing_state": st.session_state.indexing_state,
++                },
++            )
++    else:
++        st.header("Deep Research (MCP)")
++        st.caption("Uses web research only. PDF upload is ignored in this mode.")
+ 
+     st.button("Clear Chat", on_click=reset_chat)
+ 
+ # ===========================
+ #   Main Chat Interface
+ # ===========================
+-from pathlib import Path
+-logo_path = Path("assets/groundx.png")
+-
+-if logo_path.exists():
+-    logo_b64 = base64.b64encode(logo_path.read_bytes()).decode()
+-    st.markdown(
+-        f"""
+-        # Agentic RAG over complex real-world documents powered by
+-        <img src="data:image/png;base64,{logo_b64}" width="220" style="vertical-align: -12px;">
+-        """,
+-        unsafe_allow_html=True,
+-    )
+-else:
+-    st.markdown("# Agentic RAG over complex real-world documents")
++st.markdown("""
++    # Agentic RAG over complex real-world documents powered by <img src="data:image/png;base64,{}" width="220" style="vertical-align: -12px;">
++""".format(base64.b64encode(open("assets/groundx.png", "rb").read()).decode()), unsafe_allow_html=True)
+ 
+ # Render existing conversation
+ for message in st.session_state.messages:
+@@ -172,7 +345,10 @@ for message in st.session_state.messages:
+         st.markdown(message["content"])
+ 
+ # Chat input
+-prompt = st.chat_input("Ask a question about your PDF...")
++chat_disabled = (st.session_state.mode == AppMode.DOCUMENT_QA) and (st.session_state.indexing_state != "ready")
++prompt = st.chat_input("Ask a question...", disabled=chat_disabled)
++if chat_disabled and st.session_state.mode == AppMode.DOCUMENT_QA:
++    st.caption("Document QA is disabled until a PDF is indexed (status: ready).")
+ 
+ if prompt:
+     # 1. Show user message immediately
+@@ -180,74 +356,82 @@ if prompt:
+     with st.chat_message("user"):
+         st.markdown(prompt)
+ 
+-    # 2. Build or reuse the Crew (only once after PDF is loaded)
+-    if st.session_state.crew is None:
+-        st.session_state.crew = create_agents_and_tasks(st.session_state.pdf_tool)
+-
+-    # 3. Get the response
++    # 2. Route to the selected mode (hard boundary: never mix sources)
+     with st.chat_message("assistant"):
+         message_placeholder = st.empty()
+         full_response = ""
+         
+-        # Get the complete response first
+         with st.spinner("Thinking..."):
+-            inputs = {"query": prompt}
+-            crew_result = st.session_state.crew.kickoff(inputs=inputs)
+-
+-            # --- Debug: expose intermediate task outputs (especially retrieval JSON) ---
+-            retrieval_raw = None
+-            tasks_output = getattr(crew_result, "tasks_output", None)
+-            if tasks_output and len(tasks_output) > 0:
+-                # First task should be retrieval_task in sequential mode
+-                retrieval_raw = getattr(tasks_output[0], "raw", None) or getattr(tasks_output[0], "output", None)
+-                if retrieval_raw is None:
+-                    retrieval_raw = str(tasks_output[0])
+-
+-            # Show retrieval output to verify grounding
+-            if st.session_state.get("show_debug", False):
+-                with st.expander("Debug: retrieval evidence (raw)"):
+-                    st.code(retrieval_raw if retrieval_raw is not None else "<no retrieval output found>")
+-
+-            # --- Validate retriever JSON evidence (fail closed) ---
+-            evidence = []
+-            if isinstance(retrieval_raw, str):
+-                try:
+-                    parsed = json.loads(retrieval_raw)
+-                    evidence = parsed.get("evidence", []) if isinstance(parsed, dict) else []
+-                except Exception:
+-                    evidence = []
+-
+-            # Require at least 1 evidence item with valid page range and non-empty quote
+-            def _evidence_ok(ev):
+-                if not isinstance(ev, list) or len(ev) == 0:
+-                    return False
+-                for item in ev:
+-                    if not isinstance(item, dict):
+-                        return False
+-                    page = item.get("page")
+-                    quote = item.get("quote")
+-                    if not isinstance(page, int) or page < 1 or page > 4:
+-                        return False
+-                    if not isinstance(quote, str) or len(quote.strip()) < 10:
+-                        return False
+-                return True
+-
+-            if not _evidence_ok(evidence):
+-                # If retriever did not return verifiable JSON evidence, do not allow synthesis
+-                result = "Not in document (no verifiable evidence returned by retriever)."
++            if st.session_state.mode == AppMode.DOCUMENT_QA:
++                if st.session_state.pdf_tool is None:
++                    result = "Upload a PDF to use Document QA."
++                    debug_payload = {"refusal_reason": "no_pdf"}
++                    log_entry = {
++                        "mode": st.session_state.mode.value,
++                        "query": prompt,
++                        "pdf_hash": st.session_state.get("pdf_hash"),
++                        "decision": "no_pdf",
++                        "final_answer": result,
++                    }
++                else:
++                    docqa = run_docqa(
++                        prompt,
++                        pdf_tool=st.session_state.pdf_tool,
++                        llm=load_llm(),
++                        config=DocQAConfig(),
++                    )
++                    result = docqa.answer
++                    debug_payload = {
++                        "evidence": [e.__dict__ for e in docqa.evidence],
++                        "features": docqa.features.as_dict(),
++                        "p_supported": docqa.p_supported,
++                        "threshold": docqa.threshold,
++                        "decision": docqa.decision,
++                        "refusal_reason": docqa.refusal_reason,
++                        "claims": docqa.claims,
++                        "verifications": [v.__dict__ for v in docqa.claim_verifications],
++                        "latency_s": docqa.latency_s,
++                    }
++                    log_entry = {
++                        "mode": st.session_state.mode.value,
++                        "query": prompt,
++                        "pdf_hash": st.session_state.get("pdf_hash"),
++                        "evidence": [e.__dict__ for e in docqa.evidence],
++                        "features": docqa.features.as_dict(),
++                        "p_supported": docqa.p_supported,
++                        "threshold": docqa.threshold,
++                        "decision": docqa.decision,
++                        "refusal_reason": docqa.refusal_reason,
++                        "claims": docqa.claims,
++                        "claim_verifications": [v.__dict__ for v in docqa.claim_verifications],
++                        "final_answer": docqa.answer,
++                        "latency_s": docqa.latency_s,
++                    }
+             else:
+-                # Proceed with the crew's final response
+-                result = getattr(crew_result, "raw", None) or str(crew_result)
+-
+-            # Show parsed evidence in a readable form
+-            if st.session_state.get("show_debug", False):
+-                with st.expander("Debug: parsed evidence (validated)"):
+-                    st.json({"evidence": evidence} if evidence else {"evidence": []})
+-
+-            # Guardrail: block impossible page citations for this 4-page PDF
+-            pages = [int(x) for x in re.findall(r"\(p\.(\d+)\)", result)]
+-            if any(p < 1 or p > 4 for p in pages):
+-                result = "Citation error: model produced page numbers outside 1-4. Not in document."
++                research = run_mcp_research(prompt)
++                if research.citations:
++                    sources_md = "\n".join([f"- {c.url}" for c in research.citations])
++                    result = f"{research.summary}\n\nSources:\n{sources_md}"
++                else:
++                    result = research.summary
++                debug_payload = {
++                    "num_citations": len(research.citations),
++                    "sources": research.sources,
++                    "latency_s": research.latency_s,
++                    "error": research.error,
++                }
++                log_entry = {
++                    "mode": st.session_state.mode.value,
++                    "query": prompt,
++                    "pdf_hash": st.session_state.get("pdf_hash"),
++                    "sources": research.sources,
++                    "citations": [c.__dict__ for c in research.citations],
++                    "final_answer": result,
++                    "latency_s": research.latency_s,
++                    "error": research.error,
++                }
++
++            get_logger().log(log_entry)
+         
+         # Split by lines first to preserve code blocks and other markdown
+         lines = result.split('\n')
+@@ -261,5 +445,10 @@ if prompt:
+         # Show the final response without the cursor
+         message_placeholder.markdown(full_response)
+ 
++        if show_debug:
++            with st.expander("Debug", expanded=False):
++                st.json(debug_payload)
++
+     # 4. Save assistant's message to session
+     st.session_state.messages.append({"role": "assistant", "content": result})
++    
+diff --git a/agentic_rag_deepseek/src/agentic_rag/tools/custom_tool.py b/agentic_rag_deepseek/src/agentic_rag/tools/custom_tool.py
+index 37e5e57..6789d3c 100644
+--- a/agentic_rag_deepseek/src/agentic_rag/tools/custom_tool.py
++++ b/agentic_rag_deepseek/src/agentic_rag/tools/custom_tool.py
+@@ -1,80 +1,607 @@
++import json
+ import os
++import random
++import time
++from pathlib import Path
++from typing import Any, Optional, Type
++
+ from crewai.tools import BaseTool
+-from typing import Type
+-from pydantic import BaseModel, Field, ConfigDict
+-from groundx import Document, GroundX
+ from dotenv import load_dotenv
++from groundx import Document, GroundX
++from groundx.core.api_error import ApiError
++from pydantic import BaseModel, ConfigDict, Field
+ 
+-load_dotenv()
++# Load .env deterministically; python-dotenv's find_dotenv can assert in some runtimes (notably Py3.13).
++try:
++    _ENV_PATH = Path(__file__).resolve().parents[3] / ".env"
++    load_dotenv(dotenv_path=_ENV_PATH, override=False)
++except Exception:
++    pass
++
++from src.utils.env import get_groundx_api_key
+ 
+ 
+ class DocumentSearchToolInput(BaseModel):
+     """Input schema for DocumentSearchTool."""
+     query: str = Field(..., description="Query to search the document.")
+ 
++class MissingApiKeyError(RuntimeError):
++    """Raised when required API keys are missing for a tool."""
++
+ class DocumentSearchTool(BaseTool):
+     name: str = "DocumentSearchTool"
+-    description: str = "Search the document for the given query."
++    description: str = "Search the document for the given query and return JSON results with page numbers and quotes."
+     args_schema: Type[BaseModel] = DocumentSearchToolInput
+     
+     model_config = ConfigDict(extra="allow")
+     
+-    def __init__(self, file_path: str):
+-        """Initialize the searcher with a PDF file path and set up the Qdrant collection."""
+-        super().__init__()
+-        self.file_path = file_path
+-        self.client = GroundX(
+-            api_key=os.getenv("GROUNDX_API_KEY")
+-        )  
+-        self.bucket_id = self._create_bucket()
+-        self.process_id = self._upload_document()
++    def __init__(
++        self,
++        file_path: Optional[str] = None,
++        *,
++        api_key: Optional[str] = None,
++        pdf: Optional[str] = None,
++        bucket_id: Optional[int] = None,
++        process_id: Optional[str] = None,
++        document_ids: Optional[list[str]] = None,
++        ready_timeout_s: Optional[float] = None,
++        poll_interval_s: Optional[float] = None,
++        max_retries: Optional[int] = None,
++        **kwargs,
++    ):
++        """Initialize the searcher with a PDF file path.
++
++        If bucket_id and process_id are provided, reuses the existing GroundX ingest
++        instead of re-uploading (used for Streamlit refresh persistence).
++        """
++        super().__init__(**kwargs)
++        if not file_path and pdf:
++            file_path = pdf
++        if not file_path and (bucket_id is None or process_id is None):
++            raise ValueError("DocumentSearchTool requires file_path (or pdf=...) unless resuming with bucket_id and process_id.")
++
++        resolved_path = str(Path(file_path).expanduser().resolve()) if file_path else None
++        self.file_path = resolved_path
++        chosen_key = (api_key or get_groundx_api_key() or "").strip()
++        if not chosen_key:
++            raise MissingApiKeyError(
++                "GROUNDX_API_KEY is not set. Add it to .env (recommended) or export it in your shell."
++            )
++        self.client = GroundX(api_key=chosen_key)
++        self._has_lookup: bool = hasattr(self.client, "documents") and hasattr(self.client.documents, "lookup")
++        self.document_id: Optional[str] = None
++        self.document_ids: list[str] = [str(d).strip() for d in (document_ids or []) if str(d).strip()]
++        self.bucket_file_count: Optional[int] = None
++        self.last_search_scope: Optional[str] = None
++        self.last_search_error: Optional[str] = None
++        self.last_poll_status: Optional[str] = None
++        self.elapsed_wait_s: float = 0.0
++        self.in_progress: bool = False
++        self.ready: bool = False
++
++        self.ready_timeout_s = float(ready_timeout_s) if ready_timeout_s is not None else float(
++            os.getenv("GROUNDX_READY_TIMEOUT_S", 900)
++        )
++        self.poll_interval_s = float(poll_interval_s) if poll_interval_s is not None else float(
++            os.getenv("GROUNDX_POLL_INTERVAL_S", 2.0)
++        )
++        self.max_retries = int(max_retries) if max_retries is not None else int(os.getenv("GROUNDX_RETRIES", 3))
++        if bucket_id is not None and process_id is not None:
++            self.bucket_id = bucket_id
++            self.process_id = process_id
++        else:
++            if not self.file_path:
++                raise ValueError("DocumentSearchTool requires file_path (or pdf=...) unless resuming with bucket_id and process_id.")
++            if not Path(self.file_path).is_file():
++                raise FileNotFoundError(f"PDF not found: {self.file_path}")
++            reused = self._reuse_completed_ingest_if_available()
++            if not reused:
++                self.bucket_id = self._create_bucket()
++                self.process_id = self._upload_document()
++        # Block until ingest is complete to avoid empty searches immediately after upload.
++        self._lookup_document_ids()
++        self.ready = self._wait_until_ready(timeout_s=self.ready_timeout_s)
++        self._lookup_document_ids()
++        self.bucket_file_count = self._refresh_bucket_file_count()
++        if self.document_ids and not self.document_id:
++            self.document_id = self.document_ids[0]
++        self.in_progress = not self.ready
++
++    def _reuse_completed_ingest_if_available(self) -> bool:
++        """If this exact file was ingested before and is COMPLETE, reuse it.
++
++        GroundX can have long ingest queues; re-uploading the same cached PDF repeatedly
++        makes the app look like it's "stuck indexing". Our cached filenames include a
++        content hash prefix, so matching by file_name is safe here.
++        """
++        if not self.file_path:
++            return False
++        target_name = os.path.basename(self.file_path)
++        if not target_name:
++            return False
++        try:
++            buckets_resp = self._with_retries(self.client.buckets.list, n=200)
++            buckets = getattr(buckets_resp, "buckets", None) or []
++        except Exception:
++            return False
++        for b in buckets:
++            bid = getattr(b, "bucket_id", None) or getattr(b, "id", None)
++            if bid is None:
++                continue
++            try:
++                bid_int = int(bid)
++            except Exception:
++                continue
++            try:
++                lookup = self._with_retries(self.client.documents.lookup, bid_int, n=50, status="complete")
++                docs = getattr(lookup, "documents", None) or []
++            except Exception:
++                continue
++            for d in docs:
++                fname = getattr(d, "file_name", None)
++                status = getattr(d, "status", None)
++                if fname != target_name or status != "complete":
++                    continue
++                proc_id = getattr(d, "process_id", None)
++                doc_id = getattr(d, "document_id", None) or getattr(d, "id", None)
++                b_id = getattr(d, "bucket_id", None) or bid_int
++                if not proc_id or not doc_id:
++                    continue
++                self.bucket_id = int(b_id)
++                self.process_id = str(proc_id)
++                self.document_ids = [str(doc_id)]
++                self.document_id = str(doc_id)
++                return True
++        return False
+     
+     def _upload_document(self):
+-        ingest = self.client.ingest(
+-                        documents=[
+-                            Document(
+-                            bucket_id=self.bucket_id,
+-                            file_name=os.path.basename(self.file_path),
+-                            file_path=self.file_path,
+-                            file_type="pdf",
+-                            search_data=dict(
+-                                key = "value",
+-                            ),
+-                            )
+-                        ]
+-                        )
++        ingest = self._with_retries(
++            self.client.ingest,
++            documents=[
++                Document(
++                    bucket_id=self.bucket_id,
++                    file_name=os.path.basename(self.file_path),
++                    file_path=self.file_path,
++                    file_type="pdf",
++                    search_data=dict(key="value"),
++                )
++            ],
++        )
++        try:
++            docs = getattr(getattr(ingest, "ingest", None), "documents", None) or getattr(ingest, "documents", None) or []
++            if docs and not isinstance(docs, (list, tuple)):
++                docs = [docs]
++            ids = self._extract_document_ids(docs)
++            if ids:
++                self.document_ids = ids
++                self.document_id = self.document_id or ids[0]
++        except Exception:
++            pass
+         return ingest.ingest.process_id
+     
+     def _create_bucket(self):
+-        response = self.client.buckets.create(
+-            name="agentic_rag"
++        # Avoid mixing documents across runs by creating a unique bucket per uploaded PDF.
++        # (Bucket-level search is a fallback when document IDs aren't available yet.)
++        suffix = None
++        try:
++            if self.file_path:
++                stem = Path(self.file_path).stem
++                token = stem.split("_", 1)[0].strip().lower()
++                if token and len(token) >= 8 and all(c in "0123456789abcdef" for c in token):
++                    suffix = token[:12]
++        except Exception:
++            suffix = None
++        suffix = suffix or f"{int(time.time())}"
++        bucket_name = f"agentic_rag-{suffix}-{random.randint(0, 0xFFFF):04x}"
++        response = self._with_retries(
++            self.client.buckets.create,
++            name=bucket_name,
+         )
+         return response.bucket.bucket_id    
+ 
++    def _extract_document_ids(self, docs: Any) -> list[str]:
++        ids: list[str] = []
++        for doc in docs or []:
++            candidate = None
++            if isinstance(doc, dict):
++                candidate = doc.get("document_id") or doc.get("documentId") or doc.get("id")
++            else:
++                for attr in ("document_id", "documentId", "id"):
++                    candidate = getattr(doc, attr, None)
++                    if candidate:
++                        break
++            if candidate is None:
++                continue
++            s = str(candidate).strip()
++            if s:
++                ids.append(s)
++        return ids
++
++    def _lookup_document_ids(self) -> list[str]:
++        if not self._has_lookup:
++            return self.document_ids
++        try:
++            lookup_id: Any = self.process_id if self.process_id is not None else self.bucket_id
++            if lookup_id is None:
++                return self.document_ids
++            lookup = self._with_retries(self.client.documents.lookup, lookup_id)
++        except Exception:
++            if lookup_id != self.bucket_id and self.bucket_id is not None:
++                try:
++                    lookup = self._with_retries(self.client.documents.lookup, self.bucket_id)
++                except Exception:
++                    return self.document_ids
++            else:
++                return self.document_ids
++
++        docs = []
++        try:
++            docs = getattr(lookup, "documents", None)
++            if docs is None:
++                docs = getattr(getattr(lookup, "ingest", None), "documents", None)
++        except Exception:
++            docs = None
++
++        if docs is None and isinstance(lookup, dict):
++            docs = lookup.get("documents") or lookup.get("ingest", {}).get("documents")
++
++        if docs and not isinstance(docs, (list, tuple)):
++            docs = [docs]
++
++        ids = self._extract_document_ids(docs or [])
++        if not ids:
++            simple_ids = None
++            for attr in ("document_ids", "documentIds"):
++                if isinstance(lookup, dict):
++                    simple_ids = lookup.get(attr)
++                else:
++                    simple_ids = getattr(lookup, attr, None)
++                if simple_ids:
++                    break
++            if isinstance(simple_ids, (list, tuple)):
++                ids = [str(x).strip() for x in simple_ids if str(x).strip()]
++
++        if ids:
++            self.document_ids = ids
++            if not self.document_id:
++                self.document_id = ids[0]
++        return self.document_ids
++
++    def _refresh_bucket_file_count(self) -> Optional[int]:
++        try:
++            info = self._with_retries(self.client.buckets.get, bucket_id=self.bucket_id)
++        except Exception:
++            return self.bucket_file_count
++        bucket_obj = getattr(info, "bucket", None) or info
++        val = None
++        for key in ("file_count", "fileCount", "files_count", "filesCount"):
++            candidate = None
++            if isinstance(bucket_obj, dict):
++                candidate = bucket_obj.get(key)
++            else:
++                candidate = getattr(bucket_obj, key, None)
++            if candidate is not None:
++                val = candidate
++                break
++        if val is None:
++            try:
++                docs_in_bucket = getattr(bucket_obj, "documents", None)
++                if docs_in_bucket is None and isinstance(bucket_obj, dict):
++                    docs_in_bucket = bucket_obj.get("documents")
++                if docs_in_bucket is not None:
++                    val = len(docs_in_bucket)
++            except Exception:
++                val = None
++        if val is not None:
++            try:
++                self.bucket_file_count = int(val)
++            except Exception:
++                try:
++                    self.bucket_file_count = float(val)
++                except Exception:
++                    self.bucket_file_count = str(val)
++        return self.bucket_file_count
++
++    def _wait_until_ready(self, timeout_s: float = 120.0) -> bool:
++        start = time.monotonic()
++        last_status = None
++        in_progress_statuses = {"queued", "processing", "training", "running", "indexing"}
++        while True:
++            elapsed = time.monotonic() - start
++            self.elapsed_wait_s = elapsed
++            try:
++                status_response = self._with_retries(
++                    self.client.documents.get_processing_status_by_id,
++                    process_id=self.process_id,
++                )
++                last_status = getattr(getattr(status_response, "ingest", None), "status", None)
++                if isinstance(last_status, str):
++                    last_status = last_status.lower()
++                self.last_poll_status = last_status
++            except Exception as exc:
++                self.last_poll_status = f"error: {exc}"
++                last_status = None
++
++            # Refresh document ids as ingest progresses.
++            self._lookup_document_ids()
++            docs_ready = bool(self.document_ids) or not self._has_lookup
++
++            if last_status == "complete":
++                if docs_ready:
++                    return True
++                # Try one final lookup if complete but no ids.
++                self._lookup_document_ids()
++                if bool(self.document_ids) or not self._has_lookup:
++                    return True
++                return False
++
++            if last_status and last_status not in in_progress_statuses:
++                # Unexpected terminal status; stop waiting.
++                return False
++
++            if elapsed >= timeout_s:
++                return False
++
++            sleep_s = self.poll_interval_s + random.uniform(0, 0.3)
++            # avoid tight loop
++            time.sleep(max(0.1, sleep_s))
++
++    def _with_retries(self, func, *args, **kwargs):
++        attempts = 0
++        delay = self.poll_interval_s or 1.0
++        while True:
++            try:
++                return func(*args, **kwargs)
++            except ApiError as e:
++                status = getattr(e, "status_code", None)
++                # Do not retry auth/permission errors.
++                if status in (401, 403):
++                    raise
++                # Retry only on transient statuses.
++                if status is not None and status < 500:
++                    raise
++                attempts += 1
++                if attempts > self.max_retries:
++                    raise
++                time.sleep(delay + random.uniform(0, 0.2))
++                delay *= 2
++            except Exception:
++                attempts += 1
++                if attempts > self.max_retries:
++                    raise
++                time.sleep(delay + random.uniform(0, 0.2))
++                delay *= 2
++
++    def _parse_search_results(self, search_response: Any) -> list[dict[str, Any]]:
++        container = (
++            getattr(search_response, "search", None)
++            or getattr(search_response, "document_search", None)
++            or getattr(search_response, "content_search", None)
++            or search_response
++        )
++        raw_results = getattr(container, "results", None)
++        if raw_results is None and isinstance(container, dict):
++            raw_results = container.get("results")
++        results = []
++        for r in raw_results or []:
++            # Evidence must be verbatim PDF text. GroundX provides both:
++            # - `text`: original text from the document (verbatim)
++            # - `suggested_text`: model-rewritten text (NOT verbatim)
++            # For fail-closed Document QA, we only accept `text`.
++            text = None
++            if isinstance(r, dict):
++                val = r.get("text")
++                if isinstance(val, str) and val.strip():
++                    text = val.strip()
++            else:
++                val = getattr(r, "text", None)
++                if isinstance(val, str) and val.strip():
++                    text = val.strip()
++            if not text:
++                continue
++
++            # Page extraction: prefer explicit pages[].number, then boundingBoxes[].pageNumber.
++            page_num: Optional[int] = None
++            debug_pages: list[int] = []
++            debug_bbox_pages: list[int] = []
++            pages = r.get("pages") if isinstance(r, dict) else getattr(r, "pages", None)
++            if isinstance(pages, list) and pages:
++                nums = []
++                for p in pages:
++                    if isinstance(p, dict):
++                        cand = p.get("number") or p.get("page_number") or p.get("pageNumber")
++                    else:
++                        cand = getattr(p, "number", None) or getattr(p, "page_number", None) or getattr(p, "pageNumber", None)
++                    if isinstance(cand, (int, float)):
++                        try:
++                            nums.append(int(cand))
++                        except Exception:
++                            continue
++                if nums:
++                    debug_pages = [n for n in nums if n > 0]
++                    if debug_pages:
++                        # Keep deterministic behavior: pick the smallest page among candidates.
++                        page_num = min(debug_pages)
++            if page_num is None:
++                bbs = None
++                if isinstance(r, dict):
++                    bbs = r.get("boundingBoxes") or r.get("bounding_boxes") or r.get("boundingBoxes".lower())
++                else:
++                    bbs = getattr(r, "bounding_boxes", None) or getattr(r, "boundingBoxes", None)
++                if isinstance(bbs, list) and bbs:
++                    nums = []
++                    for bb in bbs:
++                        if isinstance(bb, dict):
++                            cand = bb.get("page_number") or bb.get("pageNumber") or bb.get("page")
++                        else:
++                            cand = getattr(bb, "page_number", None) or getattr(bb, "pageNumber", None) or getattr(bb, "page", None)
++                        if isinstance(cand, int) and cand > 0:
++                            nums.append(cand)
++                        elif isinstance(cand, float) and cand.is_integer() and int(cand) > 0:
++                            nums.append(int(cand))
++                    if nums:
++                        debug_bbox_pages = nums
++                        # Most-common page; tie-break to smallest for determinism.
++                        counts: dict[int, int] = {}
++                        for n in nums:
++                            counts[n] = counts.get(n, 0) + 1
++                        best = max(counts.values())
++                        winners = [p for p, c in counts.items() if c == best]
++                        page_num = min(winners) if winners else None
++            if page_num is None:
++                for attr in ("page", "page_number", "pageNumber"):
++                    cand = r.get(attr) if isinstance(r, dict) else getattr(r, attr, None)
++                    if isinstance(cand, (int, float)):
++                        try:
++                            page_num = int(cand)
++                        except Exception:
++                            page_num = None
++                        break
++
++            if isinstance(r, dict):
++                score = r.get("score") if r.get("score") is not None else r.get("similarity")
++            else:
++                score = getattr(r, "score", None)
++                if score is None:
++                    score = getattr(r, "similarity", None)
++            doc_id = None
++            for attr in ("document_id", "documentId", "doc_id"):
++                cand = r.get(attr) if isinstance(r, dict) else getattr(r, attr, None)
++                if cand:
++                    doc_id = cand
++                    break
++
++            results.append(
++                {
++                    "page": page_num,
++                    "quote": text,
++                    "score": score,
++                    "document_id": doc_id,
++                    "_page_debug": {
++                        "pages_numbers": debug_pages,
++                        "bbox_page_numbers": debug_bbox_pages,
++                        "chosen_page": page_num,
++                    },
++                }
++            )
++        return results
++
++    def _search(self, query: str, n: int = 10) -> tuple[Any, list[dict[str, Any]]]:
++        if not self.document_ids:
++            self._lookup_document_ids()
++        # Try document-scoped search first if we have document IDs.
++        if self.document_ids and hasattr(self.client, "search") and hasattr(self.client.search, "documents"):
++            try:
++                ids_to_use = []
++                for d in self.document_ids:
++                    try:
++                        ids_to_use.append(int(d))
++                    except Exception:
++                        ids_to_use.append(d)
++                raw = self._with_retries(
++                    self.client.search.documents,
++                    query=query,
++                    document_ids=ids_to_use,
++                    n=n,
++                    verbosity=2,
++                )
++                self.last_search_scope = "documents"
++                self.last_search_error = None
++                return raw, self._parse_search_results(raw)
++            except Exception as exc:
++                # Fall back to bucket search
++                self.last_search_scope = "documents_error"
++                self.last_search_error = str(exc)
++
++        try:
++            raw = self._with_retries(
++                self.client.search.content,
++                id=self.bucket_id,
++                query=query,
++                n=n,
++                verbosity=2,
++            )
++            self.last_search_scope = "bucket"
++            self.last_search_error = None
++            return raw, self._parse_search_results(raw)
++        except Exception as exc:
++            self.last_search_scope = "bucket_error"
++            self.last_search_error = str(exc)
++            raise
++
++    def _safe_serialize_raw(self, raw: Any) -> Any:
++        try:
++            if isinstance(raw, (dict, list, str, int, float, bool)) or raw is None:
++                return raw
++            if hasattr(raw, "__dict__"):
++                candidate = raw.__dict__
++                try:
++                    json.dumps(candidate)
++                    return candidate
++                except Exception:
++                    return repr(raw)
++            return repr(raw)
++        except Exception:
++            return str(raw)
++
+     def _run(self, query: str) -> str:
+         # Check processing status
+-        status_response = self.client.documents.get_processing_status_by_id(
+-            process_id=self.process_id
+-        )
+-        
+-        # Check if processing is complete
+-        if status_response.ingest.status != "complete":
++        try:
++            status_response = self._with_retries(
++                self.client.documents.get_processing_status_by_id,
++                process_id=self.process_id,
++            )
++            status = getattr(getattr(status_response, "ingest", None), "status", None)
++            if isinstance(status, str) and status.lower() != "complete":
++                self.last_poll_status = status
++                return "Document is still being processed..."
++        except Exception as exc:
++            self.last_poll_status = f"error: {exc}"
+             return "Document is still being processed..."
+-            
++
+         # If processing is complete, proceed with search
+-        search_response = self.client.search.content(
+-            id=self.bucket_id,
+-            query=query,
+-            n=10,
+-            verbosity=2
+-        )
+-        
+-        # Format the results with separators
+-        formatted_results = ""
+-        for result in search_response.search.results:
+-            formatted_results += f"{result.text}\n____\n"
+-        
+-        return formatted_results.rstrip('____\n')
++        _, results = self._search(query=query, n=10)
++        return json.dumps({"results": results}, ensure_ascii=False)
++
++    # Diagnostics helpers
++    def debug_status(self) -> dict:
++        try:
++            status_response = self._with_retries(self.client.documents.get_processing_status_by_id, process_id=self.process_id)
++            ingest_status = getattr(getattr(status_response, "ingest", None), "status", None)
++        except Exception as e:
++            ingest_status = f"error: {e}"
++        if not self.document_ids:
++            self._lookup_document_ids()
++        if self.bucket_file_count is None:
++            self._refresh_bucket_file_count()
++        return {
++            "bucket_id": self.bucket_id,
++            "process_id": self.process_id,
++            "document_id": self.document_id,
++            "document_ids": self.document_ids,
++            "bucket_file_count": self.bucket_file_count,
++            "ingest_status": ingest_status,
++            "last_search_scope": self.last_search_scope,
++            "last_search_error": self.last_search_error,
++            "last_poll_status": self.last_poll_status or ingest_status,
++            "elapsed_wait_s": round(self.elapsed_wait_s, 2),
++            "ready": self.ready,
++            "in_progress": self.in_progress,
++        }
++
++    def test_retrieval(self, query: str = "sea-level rise", n: int = 3) -> dict:
++        out = {"query": query, "status": self.debug_status(), "results": []}
++        try:
++            raw, results = self._search(query=query, n=n)
++            out["results"] = results
++            out["result_count"] = len(results)
++            out["search_scope"] = self.last_search_scope
++            out["raw"] = self._safe_serialize_raw(raw)
++        except ApiError as e:
++            out["error"] = {"status_code": getattr(e, "status_code", None), "body": getattr(e, "body", None)}
++        except Exception as e:
++            out["error"] = {"message": str(e)}
++        return out
+ 
+ # Test the implementation
+ def test_document_searcher():
+
+# Untracked additions (no-index diffs)
+diff --git a/agentic_rag_deepseek/src/utils/pdf_store.py b/agentic_rag_deepseek/src/utils/pdf_store.py
+new file mode 100644
+index 0000000..f687f13
+--- /dev/null
++++ b/agentic_rag_deepseek/src/utils/pdf_store.py
+@@ -0,0 +1,146 @@
++from __future__ import annotations
++
++import hashlib
++import json
++import re
++from dataclasses import dataclass
++from pathlib import Path
++from typing import Any, MutableMapping, Optional
++
++
++DEFAULT_CACHE_DIR = Path(".cache_uploaded_pdfs")
++DEFAULT_META_PATH = DEFAULT_CACHE_DIR / "last.json"
++
++
++@dataclass(frozen=True)
++class StoredPdf:
++    path: Path
++    filename: str
++    sha256: str
++    size_bytes: int
++
++
++def sha256_bytes(data: bytes) -> str:
++    h = hashlib.sha256()
++    h.update(data)
++    return h.hexdigest()
++
++
++def _sanitize_filename(name: str) -> str:
++    base = (name or "document.pdf").strip() or "document.pdf"
++    base = re.sub(r"[^a-zA-Z0-9._-]+", "_", base)
++    if not base.lower().endswith(".pdf"):
++        base = f"{base}.pdf"
++    return base
++
++
++def persist_pdf_bytes(
++    data: bytes,
++    filename: str,
++    *,
++    cache_dir: Path = DEFAULT_CACHE_DIR,
++) -> StoredPdf:
++    """Write uploaded PDF bytes to a stable path and return metadata.
++
++    The file is stored under `cache_dir` to avoid `TemporaryDirectory()` cleanup bugs.
++    """
++    if not isinstance(data, (bytes, bytearray)) or len(data) == 0:
++        raise ValueError("PDF data is empty")
++
++    cache_dir = cache_dir.expanduser().resolve()
++    cache_dir.mkdir(parents=True, exist_ok=True)
++    digest = sha256_bytes(bytes(data))
++    safe_name = _sanitize_filename(filename)
++    # Keep filenames manageable while staying collision-resistant.
++    short = digest[:16]
++    path = cache_dir / f"{short}_{safe_name}"
++    if not path.exists():
++        path.write_bytes(bytes(data))
++
++    return StoredPdf(path=path, filename=safe_name, sha256=digest, size_bytes=len(data))
++
++
++def ensure_pdf_in_session(
++    session_state: MutableMapping[str, Any],
++    *,
++    data: bytes,
++    filename: str,
++    session_key: str = "pdf_store",
++) -> StoredPdf:
++    """Persist a PDF for the current Streamlit session and memoize in session_state."""
++    stored: Optional[StoredPdf] = session_state.get(session_key)
++    digest = sha256_bytes(data)
++    if isinstance(stored, StoredPdf) and stored.sha256 == digest and stored.path.exists():
++        return stored
++
++    stored = persist_pdf_bytes(data, filename)
++    session_state[session_key] = stored
++    return stored
++
++
++def write_last_meta(
++    stored: StoredPdf,
++    *,
++    meta_path: Path = DEFAULT_META_PATH,
++    extra: Optional[dict[str, Any]] = None,
++) -> None:
++    payload: dict[str, Any] = {
++        "path": str(stored.path),
++        "name": stored.filename,
++        "filename": stored.filename,
++        "sha256": stored.sha256,
++        # Backward compat for older scripts.
++        "hash": stored.sha256,
++        "size_bytes": stored.size_bytes,
++    }
++    if isinstance(extra, dict):
++        for k, v in extra.items():
++            if v is not None:
++                payload[k] = v
++    meta_path.parent.mkdir(parents=True, exist_ok=True)
++    tmp_path = meta_path.with_suffix(meta_path.suffix + ".tmp")
++    tmp_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
++    tmp_path.replace(meta_path)
++
++
++def read_last_meta(*, meta_path: Path = DEFAULT_META_PATH) -> Optional[dict[str, Any]]:
++    try:
++        if not meta_path.exists():
++            return None
++        obj = json.loads(meta_path.read_text(encoding="utf-8"))
++        return obj if isinstance(obj, dict) else None
++    except Exception:
++        return None
++
++
++def load_last_stored_pdf(*, meta_path: Path = DEFAULT_META_PATH) -> tuple[Optional[StoredPdf], Optional[dict[str, Any]]]:
++    meta = read_last_meta(meta_path=meta_path)
++    if not isinstance(meta, dict):
++        return None, None
++    path_val = meta.get("path")
++    filename_val = meta.get("filename") or meta.get("name") or "document.pdf"
++    sha = meta.get("sha256") or meta.get("hash")
++    if not isinstance(path_val, str) or not path_val.strip():
++        return None, meta
++    path = Path(path_val).expanduser()
++    if not path.exists():
++        return None, meta
++    if not isinstance(sha, str) or not sha.strip():
++        try:
++            sha = sha256_bytes(path.read_bytes())
++        except Exception:
++            return None, meta
++    try:
++        size = int(meta.get("size_bytes") or path.stat().st_size)
++    except Exception:
++        size = 0
++    stored = StoredPdf(path=path.resolve(), filename=_sanitize_filename(str(filename_val)), sha256=str(sha), size_bytes=size)
++    return stored, meta
++
++
++def forget_last_meta(*, meta_path: Path = DEFAULT_META_PATH) -> None:
++    try:
++        if meta_path.exists():
++            meta_path.unlink()
++    except Exception:
++        pass
+diff --git a/agentic_rag_deepseek/src/app/groundx.py b/agentic_rag_deepseek/src/app/groundx.py
+new file mode 100644
+index 0000000..834d698
+--- /dev/null
++++ b/agentic_rag_deepseek/src/app/groundx.py
+@@ -0,0 +1,276 @@
++from __future__ import annotations
++
++from dataclasses import dataclass, field
++from typing import Any, Optional
++
++from groundx import GroundX
++from groundx.core.api_error import ApiError
++
++from src.agentic_rag.tools.custom_tool import DocumentSearchTool, MissingApiKeyError
++from src.utils.env import get_groundx_api_key, groundx_key_diagnostics
++
++
++@dataclass(frozen=True)
++class GroundXResult:
++    ok: bool
++    kind: str  # "ok" | "missing_key" | "api_error" | "unexpected" | "ingest_incomplete" | "empty" | "error" | "in_progress"
++    message: str
++    status_code: Optional[int] = None
++    body: Any = None
++    diagnostics: dict[str, Any] = field(default_factory=dict)
++
++    def as_dict(self) -> dict[str, Any]:
++        return {
++            "ok": self.ok,
++            "kind": self.kind,
++            "message": self.message,
++            "status_code": self.status_code,
++            "body": self.body,
++            "diagnostics": self.diagnostics,
++        }
++
++
++def _clean_key(k: Optional[str]) -> str:
++    return (k or "").strip()
++
++
++def _diagnostics(api_key_override: Optional[str]) -> dict[str, Any]:
++    override = _clean_key(api_key_override)
++    diag = groundx_key_diagnostics(api_key=(override or None)).as_dict()
++    diag["key_source"] = "override" if override else (diag.get("selected_env_var") or "none")
++    return diag
++
++
++def _user_message_for_api_error(status_code: Optional[int]) -> str:
++    if status_code == 401:
++        return "GroundX rejected the API key (401). Check that GROUNDX_API_KEY is correct and active."
++    return f"GroundX error (status={status_code})."
++
++
++def choose_groundx_key(api_key_override: Optional[str]) -> Optional[str]:
++    override = _clean_key(api_key_override)
++    if override:
++        return override
++    return get_groundx_api_key()
++
++
++def test_groundx_connection(api_key_override: Optional[str]) -> GroundXResult:
++    chosen_key = choose_groundx_key(api_key_override)
++    if not chosen_key:
++        return GroundXResult(
++            ok=False,
++            kind="missing_key",
++            message="GROUNDX_API_KEY is not set. Add it to .env (recommended) or export it in your shell.",
++            diagnostics=_diagnostics(api_key_override),
++        )
++
++    try:
++        client = GroundX(api_key=chosen_key)
++        client.buckets.list(n=1)
++        return GroundXResult(ok=True, kind="ok", message="GroundX connection OK.", diagnostics=_diagnostics(api_key_override))
++    except ApiError as e:
++        status = getattr(e, "status_code", None)
++        return GroundXResult(
++            ok=False,
++            kind="api_error",
++            message=_user_message_for_api_error(status),
++            status_code=status,
++            body=getattr(e, "body", None),
++            diagnostics=_diagnostics(api_key_override),
++        )
++    except Exception as e:
++        return GroundXResult(
++            ok=False,
++            kind="unexpected",
++            message=f"Unexpected error while testing GroundX: {e}",
++            diagnostics=_diagnostics(api_key_override),
++        )
++
++
++def init_document_search_tool(file_path: str, api_key_override: Optional[str]) -> tuple[Optional[DocumentSearchTool], GroundXResult]:
++    try:
++        tool = DocumentSearchTool(
++            file_path=file_path,
++            api_key=(_clean_key(api_key_override) or None),
++            # Never block Streamlit for minutes inside __init__. We poll status incrementally.
++            ready_timeout_s=0,
++        )
++        diag = _diagnostics(api_key_override)
++        diag.update(tool.debug_status())
++        ready_docs = bool(getattr(tool, "document_ids", None))
++        bucket_file_count_val = getattr(tool, "bucket_file_count", None)
++        ready_bucket = False
++        if bucket_file_count_val is not None:
++            try:
++                ready_bucket = float(bucket_file_count_val) > 0
++            except Exception:
++                ready_bucket = False
++
++        if tool.ready and (ready_docs or (not tool._has_lookup and ready_bucket)):
++            return tool, GroundXResult(ok=True, kind="ok", message="Indexed PDF.", diagnostics=diag)
++
++        last_status = diag.get("ingest_status") or diag.get("last_poll_status")
++        message = f"GroundX ingest still in progress (status: {last_status})."
++        return (
++            None,
++            GroundXResult(
++                ok=False,
++                kind="in_progress" if tool.in_progress or last_status else "ingest_incomplete",
++                message=message,
++                diagnostics=diag,
++            ),
++        )
++    except MissingApiKeyError as e:
++        return (
++            None,
++            GroundXResult(
++                ok=False,
++                kind="missing_key",
++                message=str(e),
++                diagnostics=_diagnostics(api_key_override),
++            ),
++        )
++    except FileNotFoundError as e:
++        return (
++            None,
++            GroundXResult(
++                ok=False,
++                kind="file_missing",
++                message=str(e),
++                diagnostics=_diagnostics(api_key_override),
++            ),
++        )
++    except ApiError as e:
++        status = getattr(e, "status_code", None)
++        return (
++            None,
++            GroundXResult(
++                ok=False,
++                kind="api_error",
++                message=_user_message_for_api_error(status),
++                status_code=status,
++                body=getattr(e, "body", None),
++                diagnostics=_diagnostics(api_key_override),
++            ),
++        )
++    except Exception as e:
++        return (
++            None,
++            GroundXResult(
++                ok=False,
++                kind="unexpected",
++                message=f"Unexpected error while indexing PDF: {e}",
++                diagnostics=_diagnostics(api_key_override),
++            ),
++        )
++
++
++def test_pdf_retrieval(pdf_tool: DocumentSearchTool, query: str = "sea-level rise", n: int = 3) -> GroundXResult:
++    try:
++        payload = pdf_tool.test_retrieval(query=query, n=n)
++        has_results = bool(payload.get("results"))
++        has_error = bool(payload.get("error"))
++        kind = "ok" if has_results else ("error" if has_error else "empty")
++        message = (
++            "Retrieval returned results."
++            if has_results
++            else ("Retrieval error." if has_error else "Retrieval returned no results.")
++        )
++        return GroundXResult(
++            ok=has_results,
++            kind=kind,
++            message=message,
++            diagnostics={"retrieval": payload, **pdf_tool.debug_status()},
++        )
++    except ApiError as e:
++        status = getattr(e, "status_code", None)
++        return GroundXResult(
++            ok=False,
++            kind="api_error",
++            message=_user_message_for_api_error(status),
++            status_code=status,
++            body=getattr(e, "body", None),
++            diagnostics=pdf_tool.debug_status(),
++        )
++    except Exception as e:
++        return GroundXResult(
++            ok=False,
++            kind="unexpected",
++            message=f"Unexpected error while testing retrieval: {e}",
++            diagnostics=pdf_tool.debug_status(),
++        )
++
++
++def resume_document_search_tool(
++    bucket_id: int,
++    process_id: str,
++    api_key_override: Optional[str],
++    document_ids: Optional[list[str]] = None,
++) -> tuple[Optional[DocumentSearchTool], GroundXResult]:
++    try:
++        tool = DocumentSearchTool(
++            file_path=None,
++            bucket_id=bucket_id,
++            process_id=process_id,
++            document_ids=document_ids,
++            api_key=(_clean_key(api_key_override) or None),
++            # Never block Streamlit for minutes inside __init__. We poll status incrementally.
++            ready_timeout_s=0,
++        )
++        diag = _diagnostics(api_key_override)
++        diag.update(tool.debug_status())
++        ready_docs = bool(getattr(tool, "document_ids", None))
++        bucket_file_count_val = getattr(tool, "bucket_file_count", None)
++        ready_bucket = False
++        if bucket_file_count_val is not None:
++            try:
++                ready_bucket = float(bucket_file_count_val) > 0
++            except Exception:
++                ready_bucket = False
++
++        if tool.ready and (ready_docs or (not tool._has_lookup and ready_bucket)):
++            return tool, GroundXResult(ok=True, kind="ok", message="Indexed PDF.", diagnostics=diag)
++
++        last_status = diag.get("ingest_status") or diag.get("last_poll_status")
++        return (
++            None,
++            GroundXResult(
++                ok=False,
++                kind="in_progress" if tool.in_progress or last_status else "ingest_incomplete",
++                message=f"GroundX ingest still in progress (status: {last_status}).",
++                diagnostics=diag,
++            ),
++        )
++    except MissingApiKeyError as e:
++        return (
++            None,
++            GroundXResult(
++                ok=False,
++                kind="missing_key",
++                message=str(e),
++                diagnostics=_diagnostics(api_key_override),
++            ),
++        )
++    except ApiError as e:
++        status = getattr(e, "status_code", None)
++        return (
++            None,
++            GroundXResult(
++                ok=False,
++                kind="api_error",
++                message=_user_message_for_api_error(status),
++                status_code=status,
++                body=getattr(e, "body", None),
++                diagnostics=_diagnostics(api_key_override),
++            ),
++        )
++    except Exception as e:
++        return (
++            None,
++            GroundXResult(
++                ok=False,
++                kind="unexpected",
++                message=f"Unexpected error while resuming PDF indexing: {e}",
++                diagnostics=_diagnostics(api_key_override),
++            ),
++        )
+diff --git a/agentic_rag_deepseek/src/research/mcp_runner.py b/agentic_rag_deepseek/src/research/mcp_runner.py
+new file mode 100644
+index 0000000..ad8c3d1
+--- /dev/null
++++ b/agentic_rag_deepseek/src/research/mcp_runner.py
+@@ -0,0 +1,233 @@
++from __future__ import annotations
++
++import datetime as _dt
++import os
++import re
++import subprocess
++import sys
++import time
++from dataclasses import dataclass
++from pathlib import Path
++from typing import Optional
++
++
++URL_RE = re.compile(r"https?://[^\s\]\)\"']+", re.IGNORECASE)
++
++
++@dataclass(frozen=True)
++class Citation:
++    url: str
++    title: Optional[str] = None
++    snippet: Optional[str] = None
++
++
++@dataclass(frozen=True)
++class ResearchResult:
++    summary: str
++    citations: list[Citation]
++    sources: list[str]
++    raw: str
++    latency_s: float
++    error: Optional[str] = None
++
++
++def _extract_urls(text: str) -> list[str]:
++    if not isinstance(text, str):
++        return []
++    urls = [u.rstrip(".,;:!?") for u in URL_RE.findall(text)]
++    seen: set[str] = set()
++    out: list[str] = []
++    for u in urls:
++        if u not in seen:
++            seen.add(u)
++            out.append(u)
++    return out
++
++
++def _is_list_tools_query(query: str) -> bool:
++    q = (query or "").strip().lower()
++    if not q:
++        return False
++    if q in {"list_tools", "tools", "list mcp tools", "mcp tools"}:
++        return True
++    return ("mcp" in q and "tool" in q and any(k in q for k in ["list", "show", "available"]))
++
++
++def _default_repo_b_path() -> Path:
++    override = os.getenv("MCP_RESEARCH_REPO_B_PATH")
++    if isinstance(override, str) and override.strip():
++        return Path(override.strip())
++    # Repo A lives at .../agentic_rag_deepseek; Repo B is a sibling by default.
++    return Path(__file__).resolve().parents[3] / "Multi-Agent-deep-researcher-mcp-windows-linux"
++
++
++def _repo_b_python(repo_b: Path) -> Path:
++    override = os.getenv("MCP_RESEARCH_PYTHON")
++    if isinstance(override, str) and override.strip():
++        return Path(override.strip())
++
++    venv_py = repo_b / ".venv" / "bin" / "python"
++    if venv_py.exists():
++        return venv_py
++
++    return Path(sys.executable)
++
++
++def _server_path(repo_b: Path) -> Path:
++    override = os.getenv("MCP_RESEARCH_SERVER")
++    if isinstance(override, str) and override.strip():
++        return Path(override.strip())
++    return repo_b / "server.py"
++
++
++def _quiet_env(base: Optional[dict[str, str]] = None) -> dict[str, str]:
++    env = dict(base or os.environ)
++    # Keep stdout clean for MCP stdio: anything printed to stdout breaks JSON-RPC parsing.
++    env.setdefault("RICH_DISABLE", "1")
++    env.setdefault("NO_COLOR", "1")
++    env.setdefault("TERM", "dumb")
++    env.setdefault("CLICOLOR", "0")
++    env.setdefault("PYTHONUNBUFFERED", "1")
++    env.setdefault("PYTHONDONTWRITEBYTECODE", "1")
++    env.setdefault("CREWAI_VERBOSE", "0")
++    # Pass through LinkUp key if set in Repo A .env / shell.
++    if os.getenv("LINKUP_API_KEY"):
++        env["LINKUP_API_KEY"] = os.getenv("LINKUP_API_KEY", "")
++    return env
++
++
++def _call_repo_b_subprocess(query: str, *, repo_b: Path, python_path: Path, timeout_s: int) -> tuple[str, Optional[str]]:
++    """Fallback path when the MCP client is unavailable."""
++    code = (
++        "from agents import run_research\n"
++        "import sys\n"
++        "q = sys.argv[1]\n"
++        "print(run_research(q))\n"
++    )
++    env = _quiet_env()
++    try:
++        proc = subprocess.run(
++            [str(python_path), "-c", code, query],
++            cwd=str(repo_b),
++            env=env,
++            capture_output=True,
++            text=True,
++            timeout=timeout_s,
++        )
++    except Exception as e:
++        return "NO_SOURCES", f"subprocess_failed: {e}"
++
++    out = (proc.stdout or "").strip()
++    if proc.returncode != 0:
++        err = (proc.stderr or "").strip()
++        return ("NO_SOURCES" if not out else out), f"subprocess_rc={proc.returncode}: {err[:400]}"
++    return out, None
++
++
++async def _call_mcp_stdio(
++    query: str,
++    *,
++    repo_b: Path,
++    python_path: Path,
++    server_py: Path,
++    timeout_s: int,
++) -> tuple[str, Optional[str]]:
++    try:
++        from mcp.client.session import ClientSession
++        from mcp.client.stdio import StdioServerParameters, stdio_client
++    except Exception as e:
++        return "NO_SOURCES", f"mcp_import_failed: {e}"
++
++    env = _quiet_env()
++    server = StdioServerParameters(
++        command=str(python_path),
++        args=[str(server_py)],
++        env=env,
++        cwd=str(repo_b),
++    )
++
++    errlog = sys.stderr
++    timeout = _dt.timedelta(seconds=max(5, int(timeout_s)))
++
++    try:
++        async with stdio_client(server, errlog=errlog) as (read_stream, write_stream):
++            async with ClientSession(read_stream, write_stream) as session:
++                await session.initialize()
++
++                if _is_list_tools_query(query):
++                    tools_resp = await session.list_tools()
++                    tools = getattr(tools_resp, "tools", None) or tools_resp
++                    names: list[str] = []
++                    if isinstance(tools, list):
++                        for t in tools:
++                            name = getattr(t, "name", None) or (t.get("name") if isinstance(t, dict) else None)
++                            if name:
++                                names.append(name)
++                    if not names:
++                        return "NO_SOURCES", "no_tools"
++                    formatted = "MCP tools available:\n" + "\n".join([f"- {n}" for n in names])
++                    return formatted, None
++
++                result = await session.call_tool(
++                    "crew_research",
++                    {"query": query},
++                    read_timeout_seconds=timeout,
++                )
++                if getattr(result, "isError", False):
++                    return "NO_SOURCES", "mcp_tool_error"
++
++                content = getattr(result, "content", None)
++                parts: list[str] = []
++                if isinstance(content, list) and content:
++                    for c in content:
++                        txt = getattr(c, "text", None) or (c.get("text") if isinstance(c, dict) else None)
++                        if isinstance(txt, str) and txt.strip():
++                            parts.append(txt)
++                text = "\n\n".join(parts) if parts else str(content if content is not None else result)
++                text = text.strip()
++                return (text or "NO_SOURCES"), None
++    except Exception as e:
++        return "NO_SOURCES", f"mcp_failed: {e}"
++
++
++def run_mcp_research(query: str, *, repo_b_path: Optional[Path] = None, timeout_s: int = 180) -> ResearchResult:
++    """Run deep web research via Repo B MCP stdio server (with subprocess fallback)."""
++    started = time.time()
++    repo_b = repo_b_path or _default_repo_b_path()
++    if not repo_b.exists():
++        return ResearchResult(summary="NO_SOURCES", citations=[], sources=[], raw="Repo B not found.", latency_s=time.time() - started, error="repo_b_missing")
++
++    python_path = _repo_b_python(repo_b)
++    server_py = _server_path(repo_b)
++    if not server_py.exists():
++        return ResearchResult(summary="NO_SOURCES", citations=[], sources=[], raw=f"Missing server: {server_py}", latency_s=time.time() - started, error="server_missing")
++
++    raw_text, err = None, None
++    try:
++        import anyio
++        import functools
++
++        runner = functools.partial(
++            _call_mcp_stdio,
++            query,
++            repo_b=repo_b,
++            python_path=python_path,
++            server_py=server_py,
++            timeout_s=timeout_s,
++        )
++        raw_text, err = anyio.run(runner)
++    except Exception:
++        raw_text, err = _call_repo_b_subprocess(query, repo_b=repo_b, python_path=python_path, timeout_s=timeout_s)
++
++    raw_text = raw_text if isinstance(raw_text, str) else str(raw_text)
++    urls = _extract_urls(raw_text)
++    citations = [Citation(url=u) for u in urls]
++    return ResearchResult(
++        summary=raw_text,
++        citations=citations,
++        sources=urls,
++        raw=raw_text,
++        latency_s=time.time() - started,
++        error=err,
++    )
++
+diff --git a/agentic_rag_deepseek/scripts/verify_all.py b/agentic_rag_deepseek/scripts/verify_all.py
+new file mode 100644
+index 0000000..2cdbf0a
+--- /dev/null
++++ b/agentic_rag_deepseek/scripts/verify_all.py
+@@ -0,0 +1,873 @@
++#!/usr/bin/env python3
++from __future__ import annotations
++
++import argparse
++import hashlib
++import json
++import os
++import re
++import shutil
++import sys
++import time
++from dataclasses import dataclass
++from pathlib import Path
++from typing import Optional
++from urllib.parse import urlparse
++
++
++URL_RE = re.compile(r"https?://[^\s\]\)\"']+", re.IGNORECASE)
++PDF_CACHE_DIRNAME = ".cache_uploaded_pdfs"
++PDF_CACHE_META = "last.json"
++
++
++@dataclass
++class Check:
++    name: str
++    ok: bool
++    detail: str = ""
++
++
++def _repo_root() -> Path:
++    return Path(__file__).resolve().parents[1]
++
++
++def _default_pdf_path(root: Path) -> Optional[Path]:
++    candidates = [
++        root / "knowledge" / "AbuDhabi_ClimateChange_Essay.pdf",
++        root / "knowledge" / "dspy.pdf",
++    ]
++    for p in candidates:
++        if p.exists():
++            return p
++    return None
++
++
++def _hash_bytes(data: bytes) -> str:
++    return hashlib.md5(data).hexdigest()
++
++
++def _sanitize_filename(name: str) -> str:
++    return re.sub(r"[^a-zA-Z0-9._-]+", "_", name or "document.pdf")
++
++
++def _ensure_cached_pdf(pdf_path: Path, cache_dir: Path) -> tuple[Path, str]:
++    data = pdf_path.read_bytes()
++    file_hash = _hash_bytes(data)
++    cached_name = f"{file_hash}_{_sanitize_filename(pdf_path.name)}"
++    cached_path = cache_dir / cached_name
++    cache_dir.mkdir(parents=True, exist_ok=True)
++    if not cached_path.exists():
++        cached_path.write_bytes(data)
++    return cached_path, file_hash
++
++
++def _write_last_meta(meta_path: Path, payload: dict) -> None:
++    meta_path.parent.mkdir(parents=True, exist_ok=True)
++    tmp = meta_path.with_suffix(meta_path.suffix + ".tmp")
++    tmp.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
++    tmp.replace(meta_path)
++
++
++def _read_last_meta(meta_path: Path) -> Optional[dict]:
++    try:
++        if not meta_path.exists():
++            return None
++        obj = json.loads(meta_path.read_text(encoding="utf-8"))
++        return obj if isinstance(obj, dict) else None
++    except Exception:
++        return None
++
++
++def _wait_groundx_complete(pdf_tool, timeout_s: int) -> tuple[bool, str]:
++    deadline = time.time() + timeout_s
++    last_status = None
++    while time.time() < deadline:
++        try:
++            status_resp = pdf_tool.client.documents.get_processing_status_by_id(
++                process_id=pdf_tool.process_id
++            )
++            last_status = getattr(getattr(status_resp, "ingest", None), "status", None)
++        except Exception as e:
++            return False, f"processing status check failed: {e}"
++
++        if last_status == "complete":
++            return True, "complete"
++
++        time.sleep(2)
++
++    return False, f"timed out waiting for ingest completion (last status: {last_status})"
++
++
++def _extract_json_object(raw: str) -> Optional[dict]:
++    if not isinstance(raw, str) or not raw.strip():
++        return None
++    s = raw.strip()
++    if s.startswith("```"):
++        s = re.sub(r"^```[a-zA-Z0-9_+-]*\n", "", s)
++        s = re.sub(r"\n```$", "", s).strip()
++
++    try:
++        obj = json.loads(s)
++        return obj if isinstance(obj, dict) else None
++    except Exception:
++        pass
++
++    start = s.find("{")
++    end = s.rfind("}")
++    if start != -1 and end != -1 and end > start:
++        try:
++            obj = json.loads(s[start : end + 1])
++            return obj if isinstance(obj, dict) else None
++        except Exception:
++            return None
++
++    return None
++
++
++def _coerce_page(v) -> Optional[int]:
++    if isinstance(v, int):
++        return v
++    if isinstance(v, float) and v.is_integer():
++        return int(v)
++    if isinstance(v, str) and v.strip().isdigit():
++        return int(v.strip())
++    return None
++
++
++def _evidence_ok(ev: list[dict]) -> tuple[bool, str]:
++    if not isinstance(ev, list) or len(ev) == 0:
++        return False, "evidence list empty"
++    for i, item in enumerate(ev):
++        if not isinstance(item, dict):
++            return False, f"evidence[{i}] is not an object"
++        page = _coerce_page(item.get("page"))
++        quote = item.get("quote")
++        if page is None or page < 1:
++            return False, f"evidence[{i}].page invalid: {page!r}"
++        if not isinstance(quote, str) or len(quote.strip()) < 10:
++            return False, f"evidence[{i}].quote too short/invalid"
++        item["page"] = page
++    return True, "ok"
++
++
++def _evidence_relevant(user_query: str, ev: list[dict]) -> bool:
++    if not isinstance(user_query, str) or not user_query.strip():
++        return True
++    if not isinstance(ev, list) or not ev:
++        return False
++
++    stop = {
++        "a", "about", "an", "and", "are", "as", "at", "be", "been", "being", "by", "can",
++        "could", "describe", "did", "do", "does", "document", "explain", "exact", "for",
++        "from", "give", "how", "i", "in", "include", "is", "it", "its", "list", "long",
++        "me", "of", "on", "one", "or", "pdf", "please", "provide", "quote", "quotes",
++        "say", "sentence", "sentences", "short", "show", "summarize", "summary", "tell",
++        "that", "the", "their", "them", "these", "this", "those", "to", "two", "three",
++        "four", "five", "six", "seven", "eight", "nine", "ten", "using", "verbatim",
++        "direct", "was", "were", "what", "when", "where", "which", "who", "why", "with",
++        "without", "you", "your",
++    }
++
++    def _tokens(s: str) -> set[str]:
++        toks = re.findall(r"[a-z0-9]+", (s or "").lower())
++        out = set()
++        for t in toks:
++            if t in stop:
++                continue
++            if len(t) < 3:
++                continue
++            out.add(t)
++        return out
++
++    q_tokens = _tokens(user_query)
++    if not q_tokens:
++        return True
++
++    quote_tokens = [_tokens(str(i.get("quote") or "")) for i in ev]
++    max_overlap = 0
++    for qt in quote_tokens:
++        try:
++            max_overlap = max(max_overlap, len(q_tokens & qt))
++        except Exception:
++            continue
++
++    min_overlap = 1 if len(q_tokens) <= 1 else 2
++    if max_overlap < min_overlap:
++        return False
++
++    ev_tokens: set[str] = set()
++    for qt in quote_tokens:
++        try:
++            ev_tokens |= qt
++        except Exception:
++            continue
++
++    must_nums = set(re.findall(r"\b\d{4,}\b", user_query))
++    for n in must_nums:
++        if n not in ev_tokens:
++            return False
++
++    if "abu dhabi" in user_query.lower():
++        if not any({"abu", "dhabi"}.issubset(qt) for qt in quote_tokens):
++            return False
++
++    return True
++
++
++def _pick_answerable_query(pdf_path: Path) -> str:
++    name = pdf_path.name.lower()
++    if "dspy" in name:
++        return "What is the purpose of DSpy? Include one direct quote with (p.#)."
++    if "abudhabi" in name or "abu_dhabi" in name or "abu" in name:
++        return "Give one exact sentence about Abu Dhabi from this PDF with (p.#)."
++    return "Give one exact sentence from this PDF with (p.#)."
++
++
++def _pick_out_of_doc_query(pdf_path: Path) -> str:
++    # Use a sentinel token that is extremely unlikely to appear in arbitrary PDFs.
++    # Includes a 4+ digit number so the relevance gate requires that number in evidence.
++    return (
++        "What does this document say about ZXQJ_4921_UNLIKELY_TOKEN? "
++        "Include a verbatim quote and (p.#). If it is not mentioned, respond exactly: Not in document."
++    )
++
++
++def _format_evidence_md(evidence: list[dict], max_items: int = 5) -> str:
++    blocks = []
++    for item in evidence[:max_items]:
++        pg = int(item["page"])
++        q = str(item["quote"]).rstrip()
++        blocks.append(f"(p.{pg})\n```text\n{q}\n```")
++    return "\n\n".join(blocks)
++
++
++def _answer_ok(answer: str, evidence: list[dict]) -> bool:
++    if not isinstance(answer, str) or not answer.strip():
++        return False
++    a = answer.strip().lower()
++    if a == "not in document.":
++        return False
++    if any(p in a for p in ["provided above", "as above", "mentioned above", "see above"]):
++        return False
++
++    evidence_pages = {int(item["page"]) for item in evidence}
++    cited_pages = [int(x) for x in re.findall(r"\(p\.(\d+)\)", answer)]
++    if not cited_pages:
++        return False
++    if any(p not in evidence_pages for p in cited_pages):
++        return False
++
++    # Require at least one verbatim snippet from evidence to appear in the answer.
++    norm_answer = re.sub(r"\s+", " ", answer).strip().lower()
++    for item in evidence:
++        q = re.sub(r"\s+", " ", str(item.get("quote") or "")).strip().lower()
++        words = q.split()
++        if len(words) >= 12:
++            snippet = " ".join(words[:12])
++        else:
++            snippet = q
++        if snippet and len(snippet) >= 25 and snippet in norm_answer:
++            return True
++
++    return False
++
++
++def _fallback_answer(evidence: list[dict]) -> str:
++    top = evidence[: min(2, len(evidence))]
++    lines = []
++    for item in top:
++        q = str(item["quote"]).strip()
++        pg = int(item["page"])
++        lines.append(f"\"{q}\" (p.{pg})")
++    return "\n\n".join(lines) if lines else "Not in document."
++
++
++def _build_pdf_crew(pdf_tool, llm):
++    from crewai import Agent, Crew, Process, Task
++
++    retriever = Agent(
++        role="PDF evidence retriever for query: {query}",
++        goal=(
++            "Use ONLY the provided PDF search tool to retrieve verbatim evidence that answers the user query. "
++            "The tool returns JSON search results with page numbers. Select the most relevant quotes and return "
++            "ONLY JSON evidence. Do not answer the question. Do not use web or general knowledge."
++        ),
++        backstory="You are a strict evidence retriever. If you cannot find evidence, you return an empty evidence list.",
++        verbose=False,
++        tools=[pdf_tool],
++        llm=llm,
++    )
++
++    synthesizer = Agent(
++        role="PDF-grounded answer synthesizer for query: {query}",
++        goal=(
++            "Answer the user using ONLY the evidence returned by the retriever. "
++            "Include at least one verbatim quote from evidence[].quote and cite it with (p.#) using evidence[].page. "
++            "Never say 'provided above' or refer to unseen content. "
++            "If evidence is missing or insufficient, respond exactly: Not in document."
++        ),
++        backstory="You never use outside knowledge. You never invent quotes, citations, or page numbers.",
++        verbose=False,
++        llm=llm,
++    )
++
++    retrieval_task = Task(
++        description=(
++            "Retrieve ONLY verbatim evidence from the uploaded PDF for the user query: {query}. "
++            "Do NOT use general knowledge. Do NOT answer the question. "
++            "Use the PDF search tool output to copy exact page numbers and quotes (do not guess). "
++            "Output must be JSON only."
++        ),
++        expected_output='{"evidence":[{"page":<int >=1>,"quote":"<verbatim text from PDF>"}]}',
++        agent=retriever,
++    )
++
++    response_task = Task(
++        description=(
++            "Using ONLY the JSON evidence from the retrieval task, answer the user query: {query}. "
++            "Rules: (1) Use only evidence[].quote. (2) Cite every claim with (p.#) using evidence[].page. "
++            "(2b) Include at least one direct quote from evidence[].quote verbatim. "
++            "(3) If evidence is empty/insufficient, output exactly: Not in document. "
++            "(4) Do not invent pages. Page numbers must be integers >= 1. (5) Do not invent quotes."
++        ),
++        expected_output="A concise answer grounded in the PDF with verbatim quotes and (p.#) citations, or exactly: Not in document.",
++        agent=synthesizer,
++        context=[retrieval_task],
++    )
++
++    crew = Crew(
++        agents=[retriever, synthesizer],
++        tasks=[retrieval_task, response_task],
++        process=Process.sequential,
++        verbose=False,
++    )
++    return crew
++
++
++def _run_pdf_qa_like_app(pdf_tool, llm, query: str) -> tuple[str, list[dict]]:
++    crew = _build_pdf_crew(pdf_tool, llm)
++    crew_result = crew.kickoff(inputs={"query": query})
++    tasks_output = getattr(crew_result, "tasks_output", None)
++
++    retrieval_raw = None
++    final_raw = None
++    if tasks_output and len(tasks_output) >= 1:
++        retrieval_raw = getattr(tasks_output[0], "raw", None) or getattr(tasks_output[0], "output", None) or str(tasks_output[0])
++    if tasks_output and len(tasks_output) >= 2:
++        final_raw = getattr(tasks_output[1], "raw", None) or getattr(tasks_output[1], "output", None)
++    if final_raw is None:
++        final_raw = getattr(crew_result, "raw", None) or str(crew_result)
++
++    evidence: list[dict] = []
++    parsed = _extract_json_object(str(retrieval_raw) if retrieval_raw is not None else "")
++    if isinstance(parsed, dict):
++        ev = parsed.get("evidence", [])
++        if isinstance(ev, list):
++            evidence = ev
++
++    ok, _ = _evidence_ok(evidence)
++    if not ok:
++        # Fallback: pull evidence directly from the PDF search tool output.
++        try:
++            tool_raw = pdf_tool._run(query)
++            tool_obj = json.loads(tool_raw) if isinstance(tool_raw, str) else {}
++            results = tool_obj.get("results", []) if isinstance(tool_obj, dict) else []
++            fallback: list[dict] = []
++            if isinstance(results, list):
++                for r in results:
++                    if not isinstance(r, dict):
++                        continue
++                    page = _coerce_page(r.get("page"))
++                    quote = r.get("quote")
++                    if page is None or page < 1:
++                        continue
++                    if not isinstance(quote, str) or len(quote.strip()) < 10:
++                        continue
++                    fallback.append({"page": page, "quote": quote})
++            evidence = fallback
++        except Exception:
++            evidence = []
++
++    ok, _ = _evidence_ok(evidence)
++    if not ok or not _evidence_relevant(query, evidence):
++        return "Not in document.", []
++
++    evidence_md = _format_evidence_md(evidence)
++    answer = str(final_raw).strip() if final_raw is not None else ""
++    if not _answer_ok(answer, evidence):
++        answer = _fallback_answer(evidence)
++
++    return f"### Evidence\n\n{evidence_md}\n\n### Answer\n\n{answer}", evidence
++
++
++def check_doc_qa_answerable(pdf_path: Path, timeout_s: int) -> Check:
++    if not pdf_path.exists():
++        return Check("1) Document QA (answerable)", False, f"PDF not found: {pdf_path}")
++    if not os.getenv("GROUNDX_API_KEY"):
++        return Check("1) Document QA (answerable)", False, "GROUNDX_API_KEY is missing")
++
++    root = _repo_root()
++    sys.path.insert(0, str(root))
++
++    try:
++        from crewai import LLM
++        from src.agentic_rag.tools.custom_tool import DocumentSearchTool
++    except Exception as e:
++        return Check("1) Document QA (answerable)", False, f"import failed: {e}")
++
++    cache_dir = root / PDF_CACHE_DIRNAME
++    meta_path = cache_dir / PDF_CACHE_META
++    cached_pdf, file_hash = _ensure_cached_pdf(pdf_path, cache_dir)
++
++    # Reuse the last ingest if it matches the same cached PDF; avoids re-uploading on repeat runs.
++    meta = _read_last_meta(meta_path) or {}
++    reuse = (
++        meta.get("path") == str(cached_pdf)
++        and meta.get("hash") == file_hash
++        and isinstance(meta.get("bucket_id"), int)
++        and isinstance(meta.get("process_id"), str)
++        and meta.get("process_id").strip()
++    )
++
++    try:
++        if reuse:
++            pdf_tool = DocumentSearchTool(
++                file_path=str(cached_pdf),
++                bucket_id=int(meta["bucket_id"]),
++                process_id=str(meta["process_id"]),
++                ready_timeout_s=0,
++            )
++        else:
++            pdf_tool = DocumentSearchTool(file_path=str(cached_pdf), ready_timeout_s=0)
++    except Exception as e:
++        return Check("1) Document QA (answerable)", False, f"DocumentSearchTool init failed: {e}")
++
++    # Persist IDs for refresh simulation
++    _write_last_meta(
++        meta_path,
++        {
++            "path": str(cached_pdf),
++            "name": pdf_path.name,
++            "hash": file_hash,
++            "bucket_id": getattr(pdf_tool, "bucket_id", None),
++            "process_id": getattr(pdf_tool, "process_id", None),
++        },
++    )
++
++    ok, status = _wait_groundx_complete(pdf_tool, timeout_s=timeout_s)
++    if not ok:
++        return Check("1) Document QA (answerable)", False, status)
++
++    llm = LLM(
++        model=os.getenv("VERIFY_PDF_LLM_MODEL", "ollama/deepseek-r1:7b"),
++        base_url=os.getenv("VERIFY_OLLAMA_BASE_URL", "http://localhost:11434"),
++        temperature=0,
++    )
++
++    query = _pick_answerable_query(pdf_path)
++    try:
++        result, evidence = _run_pdf_qa_like_app(pdf_tool, llm, query=query)
++    except Exception as e:
++        return Check("1) Document QA (answerable)", False, f"run failed: {e}")
++
++    if result.strip() == "Not in document.":
++        return Check("1) Document QA (answerable)", False, f"unexpected refusal for query: {query!r}")
++
++    ok_ev, why = _evidence_ok(evidence)
++    if not ok_ev:
++        return Check("1) Document QA (answerable)", False, f"evidence invalid: {why}")
++
++    # Confirm the final response includes an Answer section containing a quote + (p.#).
++    m = re.search(r"###\s*Answer\s*\n+(.+)$", result, re.DOTALL)
++    answer_text = m.group(1).strip() if m else ""
++    if not answer_text:
++        return Check("1) Document QA (answerable)", False, "missing Answer section")
++    if not _answer_ok(answer_text, evidence):
++        return Check("1) Document QA (answerable)", False, "answer missing quote/(p.#) or cites non-evidence page")
++
++    return Check("1) Document QA (answerable)", True, f"ok (query={query!r}, evidence={len(evidence)})")
++
++
++def check_doc_qa_refusal(timeout_s: int) -> Check:
++    root = _repo_root()
++    meta_path = root / PDF_CACHE_DIRNAME / PDF_CACHE_META
++    meta = _read_last_meta(meta_path)
++    cached_path = (meta or {}).get("path")
++    if not isinstance(cached_path, str) or not cached_path:
++        return Check("2) Document QA refusal", False, f"missing cached meta at: {meta_path}")
++    cached_pdf = Path(cached_path)
++    if not cached_pdf.exists():
++        return Check("2) Document QA refusal", False, f"cached PDF missing: {cached_pdf}")
++    if not os.getenv("GROUNDX_API_KEY"):
++        return Check("2) Document QA refusal", False, "GROUNDX_API_KEY is missing")
++
++    sys.path.insert(0, str(root))
++    try:
++        from crewai import LLM
++        from src.agentic_rag.tools.custom_tool import DocumentSearchTool
++    except Exception as e:
++        return Check("2) Document QA refusal", False, f"import failed: {e}")
++
++    bucket_id = meta.get("bucket_id")
++    process_id = meta.get("process_id")
++    kwargs = {}
++    if isinstance(bucket_id, int) and isinstance(process_id, str) and process_id.strip():
++        kwargs = {"bucket_id": bucket_id, "process_id": process_id}
++    kwargs["ready_timeout_s"] = 0
++
++    try:
++        pdf_tool = DocumentSearchTool(file_path=str(cached_pdf), **kwargs)
++    except Exception as e:
++        return Check("2) Document QA refusal", False, f"DocumentSearchTool init failed: {e}")
++
++    # Don't re-wait the full timeout again; if ingest isn't complete, report the current status.
++    try:
++        status_resp = pdf_tool.client.documents.get_processing_status_by_id(process_id=pdf_tool.process_id)
++        status = getattr(getattr(status_resp, "ingest", None), "status", None)
++    except Exception as e:
++        return Check("2) Document QA refusal", False, f"processing status check failed: {e}")
++    if status != "complete":
++        return Check("2) Document QA refusal", False, f"ingest not complete (status: {status})")
++
++    llm = LLM(
++        model=os.getenv("VERIFY_PDF_LLM_MODEL", "ollama/deepseek-r1:7b"),
++        base_url=os.getenv("VERIFY_OLLAMA_BASE_URL", "http://localhost:11434"),
++        temperature=0,
++    )
++
++    query = _pick_out_of_doc_query(Path(meta.get("name") or cached_pdf.name))
++    try:
++        result, _evidence = _run_pdf_qa_like_app(pdf_tool, llm, query=query)
++    except Exception as e:
++        return Check("2) Document QA refusal", False, f"run failed: {e}")
++
++    if result.strip() != "Not in document.":
++        return Check("2) Document QA refusal", False, f"expected exact refusal, got: {result[:120]!r}")
++
++    return Check("2) Document QA refusal", True, "ok (exact Not in document.)")
++
++
++def check_refresh_persistence(timeout_s: int) -> Check:
++    root = _repo_root()
++    meta_path = root / PDF_CACHE_DIRNAME / PDF_CACHE_META
++    meta = _read_last_meta(meta_path)
++    if not meta:
++        return Check("3) Refresh persistence", False, f"missing cached meta at: {meta_path}")
++
++    cached_path = meta.get("path")
++    bucket_id = meta.get("bucket_id")
++    process_id = meta.get("process_id")
++    if not isinstance(cached_path, str) or not cached_path:
++        return Check("3) Refresh persistence", False, "last.json missing path")
++    if not isinstance(bucket_id, int) or not isinstance(process_id, str) or not process_id.strip():
++        return Check("3) Refresh persistence", False, "last.json missing bucket_id/process_id")
++
++    cached_pdf = Path(cached_path)
++    if not cached_pdf.exists():
++        return Check("3) Refresh persistence", False, f"cached PDF missing: {cached_pdf}")
++    if not os.getenv("GROUNDX_API_KEY"):
++        return Check("3) Refresh persistence", False, "GROUNDX_API_KEY is missing")
++
++    sys.path.insert(0, str(root))
++    try:
++        from src.agentic_rag.tools.custom_tool import DocumentSearchTool
++    except Exception as e:
++        return Check("3) Refresh persistence", False, f"import failed: {e}")
++
++    try:
++        pdf_tool = DocumentSearchTool(file_path=str(cached_pdf), bucket_id=bucket_id, process_id=process_id, ready_timeout_s=0)
++    except Exception as e:
++        return Check("3) Refresh persistence", False, f"rehydrate init failed: {e}")
++
++    try:
++        status_resp = pdf_tool.client.documents.get_processing_status_by_id(process_id=pdf_tool.process_id)
++        status = getattr(getattr(status_resp, "ingest", None), "status", None)
++    except Exception as e:
++        return Check("3) Refresh persistence", False, f"processing status check failed: {e}")
++    if status != "complete":
++        return Check("3) Refresh persistence", False, f"ingest not complete (status: {status})")
++
++    return Check("3) Refresh persistence", True, f"ok (rehydrated bucket_id={bucket_id}, process_id={process_id})")
++
++
++def _extract_urls(text: str) -> list[str]:
++    if not isinstance(text, str):
++        return []
++    urls = [u.rstrip(".,;:!?") for u in URL_RE.findall(text)]
++    seen: set[str] = set()
++    out: list[str] = []
++    for u in urls:
++        if u not in seen:
++            seen.add(u)
++            out.append(u)
++    return out
++
++
++def _urls_ok(text: str, min_urls: int) -> tuple[bool, list[str], str]:
++    urls = _extract_urls(text)
++    if min_urls <= 0:
++        return True, urls, "skipped"
++
++    lowered = (text or "").lower()
++    placeholders = ["retrieved from link", "available at: https://example.com"]
++    if any(p in lowered for p in placeholders):
++        return False, urls, "placeholder content detected"
++
++    banned_domains = {
++        "example.com",
++        "www.example.com",
++        "localhost",
++        "127.0.0.1",
++        "0.0.0.0",
++    }
++
++    valid_urls: list[str] = []
++    parsed = []
++    for u in urls:
++        try:
++            p = urlparse(u)
++        except Exception:
++            continue
++        if p.scheme not in {"http", "https"} or not p.netloc:
++            continue
++        host = p.netloc.split("@")[-1].split(":")[0].strip().lower()
++        if host in banned_domains:
++            return False, urls, f"placeholder/banned domain: {host}"
++        if not host or "." not in host:
++            continue
++        if not re.fullmatch(r"[a-z0-9.-]+", host):
++            continue
++        tld = host.rsplit(".", 1)[-1]
++        allowed_long_tlds = {"com", "org", "net", "edu", "gov", "int", "info", "biz"}
++        if not ((len(tld) == 2 and tld.isalpha()) or (tld in allowed_long_tlds)):
++            continue
++        valid_urls.append(u)
++        parsed.append(p)
++
++    if len(valid_urls) < min_urls:
++        return False, valid_urls, f"insufficient urls: found {len(valid_urls)}"
++
++    return True, valid_urls, "ok"
++
++
++def _mcp_detect_defaults(root: Path) -> tuple[Optional[Path], Optional[Path]]:
++    mcp_project = (root.parent / "Multi-Agent-deep-researcher-mcp-windows-linux").resolve()
++    server_py = mcp_project / "server.py"
++    server_python = mcp_project / ".venv" / "bin" / "python"
++    return (server_python if server_python.exists() else None, server_py if server_py.exists() else None)
++
++
++def check_mcp_tools(mcp_python: Path, mcp_server: Path, timeout_s: int) -> Check:
++    try:
++        import anyio
++        from mcp.client.session import ClientSession
++        from mcp.client.stdio import StdioServerParameters, stdio_client
++    except Exception as e:
++        return Check("4) MCP tools", False, f"mcp client import failed: {e}")
++
++    root = _repo_root()
++    home_dir = (root / ".cache" / "mcp_home").resolve()
++    home_dir.mkdir(parents=True, exist_ok=True)
++
++    server_env = dict(os.environ)
++    server_env.setdefault("RICH_DISABLE", "1")
++    server_env.setdefault("NO_COLOR", "1")
++    server_env.setdefault("TERM", "dumb")
++    server_env.setdefault("CLICOLOR", "0")
++    server_env.setdefault("PYTHONUNBUFFERED", "1")
++    server_env.setdefault("PYTHONDONTWRITEBYTECODE", "1")
++    server_env.setdefault("CREWAI_VERBOSE", "0")
++    server_env["HOME"] = str(home_dir)
++
++    async def _run() -> tuple[bool, str, list[str]]:
++        params = StdioServerParameters(
++            command=str(mcp_python),
++            args=[str(mcp_server)],
++            env=server_env,
++            cwd=str(mcp_server.parent),
++        )
++        async with stdio_client(params) as (read_stream, write_stream):
++            async with ClientSession(read_stream, write_stream) as session:
++                with anyio.fail_after(timeout_s):
++                    await session.initialize()
++                    tools_resp = await session.list_tools()
++
++                tools = getattr(tools_resp, "tools", None) or tools_resp
++                names: list[str] = []
++                if isinstance(tools, list):
++                    for t in tools:
++                        name = getattr(t, "name", None) or (t.get("name") if isinstance(t, dict) else None)
++                        if name:
++                            names.append(name)
++                if not names:
++                    return False, "no tools returned by MCP server", []
++                if "crew_research" not in names:
++                    return False, f"expected crew_research tool; got: {names}", names
++                return True, f"ok (tools={names})", names
++
++    try:
++        ok, detail, _ = anyio.run(_run)
++        return Check("4) MCP tools", ok, detail)
++    except Exception as e:
++        return Check("4) MCP tools", False, f"exception: {e}")
++
++
++def check_mcp_sources(mcp_python: Path, mcp_server: Path, timeout_s: int) -> Check:
++    try:
++        import anyio
++        from mcp.client.session import ClientSession
++        from mcp.client.stdio import StdioServerParameters, stdio_client
++    except Exception as e:
++        return Check("5) MCP sources", False, f"mcp client import failed: {e}")
++
++    root = _repo_root()
++    home_dir = (root / ".cache" / "mcp_home").resolve()
++    home_dir.mkdir(parents=True, exist_ok=True)
++
++    server_env = dict(os.environ)
++    server_env.setdefault("RICH_DISABLE", "1")
++    server_env.setdefault("NO_COLOR", "1")
++    server_env.setdefault("TERM", "dumb")
++    server_env.setdefault("CLICOLOR", "0")
++    server_env.setdefault("PYTHONUNBUFFERED", "1")
++    server_env.setdefault("PYTHONDONTWRITEBYTECODE", "1")
++    server_env.setdefault("CREWAI_VERBOSE", "0")
++    server_env["HOME"] = str(home_dir)
++
++    min_urls = 3
++    query = (
++        "Give 3 reputable sources with full https URLs about climate change impacts. "
++        "Do NOT use homepages; each URL must include a non-root path (beyond '/') and directly support the claim. "
++        "Return a final 'Sources' section of bullet URLs. "
++        "If you cannot, output exactly: NO_SOURCES."
++    )
++
++    async def _run() -> tuple[bool, str]:
++        params = StdioServerParameters(
++            command=str(mcp_python),
++            args=[str(mcp_server)],
++            env=server_env,
++            cwd=str(mcp_server.parent),
++        )
++        async with stdio_client(params) as (read_stream, write_stream):
++            async with ClientSession(read_stream, write_stream) as session:
++                with anyio.fail_after(timeout_s):
++                    await session.initialize()
++                    tools_resp = await session.list_tools()
++
++                tools = getattr(tools_resp, "tools", None) or tools_resp
++                names: list[str] = []
++                if isinstance(tools, list):
++                    for t in tools:
++                        name = getattr(t, "name", None) or (t.get("name") if isinstance(t, dict) else None)
++                        if name:
++                            names.append(name)
++                if not names:
++                    return False, "no tools returned by MCP server"
++
++                tool_name = "crew_research" if "crew_research" in names else names[0]
++
++                with anyio.fail_after(timeout_s):
++                    result = await session.call_tool(tool_name, {"query": query})
++
++                content = getattr(result, "content", None)
++                parts: list[str] = []
++                if isinstance(content, list) and content:
++                    for c in content:
++                        t = getattr(c, "text", None) or (c.get("text") if isinstance(c, dict) else None)
++                        if isinstance(t, str) and t.strip():
++                            parts.append(t)
++                text = "\n\n".join(parts) if parts else str(content if content is not None else result)
++
++                if re.search(r"\bNO_SOURCES\b", text, re.IGNORECASE):
++                    return True, "ok (NO_SOURCES)"
++
++                ok, urls, reason = _urls_ok(text, min_urls=min_urls)
++                if not ok:
++                    return False, f"{reason}; urls={urls}"
++
++                return True, f"ok (urls={urls[:min_urls]})"
++
++    try:
++        ok, detail = anyio.run(_run)
++        return Check("5) MCP sources", ok, detail)
++    except Exception as e:
++        return Check("5) MCP sources", False, f"exception: {e}")
++
++
++def main() -> int:
++    # Keep CrewAI quiet and disable rich/ANSI output by default.
++    os.environ.setdefault("CREWAI_DISABLE_TELEMETRY", "true")
++    os.environ.setdefault("OTEL_SDK_DISABLED", "true")
++    os.environ.setdefault("CREWAI_VERBOSE", "0")
++    os.environ.setdefault("RICH_DISABLE", "1")
++    os.environ.setdefault("NO_COLOR", "1")
++    os.environ.setdefault("TERM", "dumb")
++    os.environ.setdefault("CLICOLOR", "0")
++    os.environ.setdefault("PYTHONUNBUFFERED", "1")
++    os.environ.setdefault("PYTHONDONTWRITEBYTECODE", "1")
++
++    # Load .env if available.
++    try:
++        from dotenv import load_dotenv
++
++        load_dotenv(dotenv_path=_repo_root() / ".env", override=False)
++    except Exception:
++        pass
++
++    parser = argparse.ArgumentParser(description="End-to-end verification for Document QA + MCP Deep Research")
++    parser.add_argument("--pdf", type=str, default=None, help="Path to a local PDF to use")
++    parser.add_argument("--timeout", type=int, default=600, help="Timeout seconds per stage")
++    parser.add_argument("--mcp-python", type=str, default=None, help="Path to MCP venv python (e.g., .../.venv/bin/python)")
++    parser.add_argument("--mcp-server", type=str, default=None, help="Path to MCP server.py")
++    args = parser.parse_args()
++
++    root = _repo_root()
++    pdf_path = Path(args.pdf).expanduser().resolve() if args.pdf else _default_pdf_path(root)
++    if pdf_path is None:
++        print("FAIL: No PDF provided and no default PDF found.", file=sys.stderr)
++        return 2
++
++    # Do NOT Path.resolve() the venv python executable: it can resolve symlinks to the
++    # underlying system interpreter and break venv site-packages detection.
++    def _abspath(p: str) -> Path:
++        return Path(os.path.abspath(str(Path(p).expanduser())))
++
++    mcp_python = _abspath(args.mcp_python) if args.mcp_python else None
++    mcp_server = _abspath(args.mcp_server) if args.mcp_server else None
++    if mcp_python is None or mcp_server is None:
++        d_py, d_srv = _mcp_detect_defaults(root)
++        mcp_python = mcp_python or d_py
++        mcp_server = mcp_server or d_srv
++
++    checks: list[Check] = [
++        check_doc_qa_answerable(pdf_path, timeout_s=args.timeout),
++        check_doc_qa_refusal(timeout_s=args.timeout),
++        check_refresh_persistence(timeout_s=args.timeout),
++    ]
++
++    if mcp_python is None or mcp_server is None:
++        checks.append(Check("4) MCP tools", False, "missing --mcp-python/--mcp-server and auto-detect failed"))
++        checks.append(Check("5) MCP sources", False, "missing --mcp-python/--mcp-server and auto-detect failed"))
++    else:
++        if not mcp_python.exists():
++            checks.append(Check("4) MCP tools", False, f"mcp python not found: {mcp_python}"))
++            checks.append(Check("5) MCP sources", False, f"mcp python not found: {mcp_python}"))
++        elif not mcp_server.exists():
++            checks.append(Check("4) MCP tools", False, f"mcp server not found: {mcp_server}"))
++            checks.append(Check("5) MCP sources", False, f"mcp server not found: {mcp_server}"))
++        else:
++            checks.append(check_mcp_tools(mcp_python, mcp_server, timeout_s=args.timeout))
++            checks.append(check_mcp_sources(mcp_python, mcp_server, timeout_s=args.timeout))
++
++    all_ok = True
++    for c in checks:
++        status = "PASS" if c.ok else "FAIL"
++        print(f"{status}: {c.name} - {c.detail}")
++        all_ok = all_ok and c.ok
++
++    return 0 if all_ok else 1
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())

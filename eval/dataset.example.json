@@ -1,0 +1,11 @@
+[
+  {
+    "query": "What is the purpose of DSpy? Cite pages.",
+    "expected_decision": "supported"
+  },
+  {
+    "query": "What does this document say about ZXQJ_4921_UNLIKELY_TOKEN? Cite pages.",
+    "expected_decision": "not_supported"
+  }
+]
+
