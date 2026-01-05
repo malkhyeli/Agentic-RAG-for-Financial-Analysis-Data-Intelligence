@@ -1,8 +1,121 @@
-# Fail-Closed, Agentic RAG over Real-World Documents
+<div id="top">
 
-This project implements an **agentic Retrieval-Augmented Generation (RAG)** system that is **fail-closed**: the application **refuses to answer** when retriever evidence cannot be verified. This prevents hallucinations and makes model behavior auditable.
+<!-- HEADER STYLE: CLASSIC -->
+<div align="center">
 
-The system integrates EyelevelAI GroundX as a custom retrieval tool with CrewAI agents. When evidence is missing or unverifiable, the app returns an explicit refusal instead of guessing.
+
+# AGENTIC-RAG-FOR-FINANCIAL-ANALYSIS-DATA-INTELLIGENCE
+
+<em>Transform Data into Actionable Financial Insights</em>
+
+<!-- BADGES -->
+<img src="https://img.shields.io/github/last-commit/malkhyeli/Agentic-RAG-for-Financial-Analysis-Data-Intelligence?style=flat&logo=git&logoColor=white&color=0080ff" alt="last-commit">
+<img src="https://img.shields.io/github/languages/top/malkhyeli/Agentic-RAG-for-Financial-Analysis-Data-Intelligence?style=flat&color=0080ff" alt="repo-top-language">
+<img src="https://img.shields.io/github/languages/count/malkhyeli/Agentic-RAG-for-Financial-Analysis-Data-Intelligence?style=flat&color=0080ff" alt="repo-language-count">
+
+<em>Built with the tools and technologies:</em>
+
+<img src="https://img.shields.io/badge/JSON-000000.svg?style=flat&logo=JSON&logoColor=white" alt="JSON">
+<img src="https://img.shields.io/badge/Markdown-000000.svg?style=flat&logo=Markdown&logoColor=white" alt="Markdown">
+<img src="https://img.shields.io/badge/Streamlit-FF4B4B.svg?style=flat&logo=Streamlit&logoColor=white" alt="Streamlit">
+<img src="https://img.shields.io/badge/scikitlearn-F7931E.svg?style=flat&logo=scikit-learn&logoColor=white" alt="scikitlearn">
+<img src="https://img.shields.io/badge/FastAPI-009688.svg?style=flat&logo=FastAPI&logoColor=white" alt="FastAPI">
+<img src="https://img.shields.io/badge/Pytest-0A9EDC.svg?style=flat&logo=Pytest&logoColor=white" alt="Pytest">
+<img src="https://img.shields.io/badge/Python-3776AB.svg?style=flat&logo=Python&logoColor=white" alt="Python">
+<img src="https://img.shields.io/badge/YAML-CB171E.svg?style=flat&logo=YAML&logoColor=white" alt="YAML">
+
+</div>
+<br>
+
+---
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Getting Started](#getting-started)
+    - [Prerequisites](#prerequisites)
+    - [Installation](#installation)
+    - [Usage](#usage)
+    - [Testing](#testing)
+
+---
+
+## Overview
+
+Agentic-RAG-for-Financial-Analysis-Data-Intelligence is a comprehensive framework that combines retrieval-augmented generation with multi-agent orchestration to deliver transparent and reliable financial insights. It emphasizes strict evidence sourcing from PDFs and web sources, ensuring responses are grounded in verified data.
+
+**Why Agentic-RAG?**
+
+This project streamlines complex data workflows for financial analysis. The core features include:
+
+- 🧩 **🔍 Document Grounding:** Ensures answers are based solely on uploaded PDFs or web sources, maintaining high accuracy and transparency.
+- 🧠 **🤖 Multi-Agent Orchestration:** Coordinates autonomous agents for scalable, flexible research and response generation.
+- 🛠️ **📝 Environment & Validation Tools:** Facilitates environment setup, dependency management, and resource validation for robust development.
+- 📄 **📚 Document Ingestion & Retrieval:** Supports secure PDF uploads, indexing, and precise document search.
+- ⚙️ **🔧 Modular Architecture:** Configurable via YAML and scripts, enabling tailored workflows and easy maintenance.
+- 🔒 **🚫 Fail-Closed Responses:** Prevents hallucinations by refusing to answer when evidence is insufficient, boosting system trustworthiness.
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+This project requires the following dependencies:
+
+- **Programming Language:** Python
+- **Package Manager:** Pip
+
+### Installation
+
+Build Agentic-RAG-for-Financial-Analysis-Data-Intelligence from the source and install dependencies:
+
+1. **Clone the repository:**
+
+    ```sh
+    ❯ git clone https://github.com/malkhyeli/Agentic-RAG-for-Financial-Analysis-Data-Intelligence
+    ```
+
+2. **Navigate to the project directory:**
+
+    ```sh
+    ❯ cd Agentic-RAG-for-Financial-Analysis-Data-Intelligence
+    ```
+
+3. **Install the dependencies:**
+
+**Using [pip](https://pypi.org/project/pip/):**
+
+```sh
+❯ pip install -r requirements-dev.txt, requirements.txt
+```
+
+### Usage
+
+Run the project with:
+
+**Using [pip](https://pypi.org/project/pip/):**
+
+```sh
+python {entrypoint}
+```
+
+### Testing
+
+Agentic-rag-for-financial-analysis-data-intelligence uses the {__test_framework__} test framework. Run the test suite with:
+
+**Using [pip](https://pypi.org/project/pip/):**
+
+```sh
+pytest
+```
+
+---
+
+<div align="left"><a href="#top">⬆ Return</a></div>
+
+---
+
 
 ## Key Properties
 - **Fail-closed by default**: No evidence → no answer.
